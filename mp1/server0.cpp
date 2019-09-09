@@ -64,24 +64,28 @@ int main(int argc, char const *argv[])
         perror("bind failed"); 
         exit(EXIT_FAILURE); 
     } 
-    if (listen(server_fd, 3) < 0) 
-    { 
-        perror("listen"); 
-        exit(EXIT_FAILURE); 
-    } 
-    if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
-                       (socklen_t*)&addrlen))<0) 
-    { 
-        perror("accept"); 
-        exit(EXIT_FAILURE); 
-    } 
-    valread = read( new_socket , buffer, 1024); 
-    printf("%s\n",buffer ); 
 
-    string result = exec(buffer);
+    while(true){
+        if (listen(server_fd, 3) < 0) 
+        { 
+            perror("listen"); 
+            exit(EXIT_FAILURE); 
+        } 
+        if ((new_socket = accept(server_fd, (struct sockaddr *)&address,  
+                           (socklen_t*)&addrlen))<0) 
+        { 
+            perror("accept"); 
+            exit(EXIT_FAILURE); 
+        } 
+        valread = read( new_socket , buffer, 1024); 
+        printf("%s\n",buffer ); 
 
-    send(new_socket , hello , strlen(hello) , 0 ); 
-    printf("Hello message sent\n"); 
+        string result = exec(buffer);
+
+        //send(new_socket , hello , strlen(hello) , 0 ); 
+        send(new_socket, result.c_str(), result.length(), 0);
+        printf("Hello message sent\n"); 
+    }
     return 0; 
 } 
 
