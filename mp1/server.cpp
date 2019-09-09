@@ -38,6 +38,7 @@ int main(int arc, char const *argv[]) {
 	char received_info[MAXLINE] = {0}; 
 	string result;
 	int read_received_message;
+    int addrlen = sizeof(addr); 
 
 	server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if(server_fd == 0) {
@@ -54,23 +55,25 @@ int main(int arc, char const *argv[]) {
 		exit(1);
 	}
 
-	if(listen(server_fd, QUEUE_SIZE) < 0) {
-		perror("[Error]: Fail to listen to incoming connections");
-		exit(1);
+
+	while(true){
+		if(listen(server_fd, QUEUE_SIZE) < 0) {
+			perror("[Error]: Fail to listen to incoming connections");
+			exit(1);
+		}
+		new_server_fd = accept(server_fd, (struct sockaddr *)&addr, (socklen_t*)&addrlen);
+		if(new_server_fd < 0) {
+			perror("[Error]: Fail to accept to incoming connections");
+			exit(1);
+		}
+
+		read_received_message = read(new_server_fd, received_info, MAXLINE);
+		printf("The order received is: %s\n", received_info);
+		// "grep 'linux' test.txt"
+		result = getResult(received_info);
+		printf("Query result is: %s\n", result.c_str());
+		send(new_server_fd, result.c_str(), MAXLINE, 0);
 	}
-
-	new_server_fd = accept(server_fd, (struct sockaddr *)&addr, (socklen_t*)&addr);
-	if(new_server_fd < 0) {
-		perror("[Error]: Fail to accept to incoming connections");
-		exit(1);
-	}
-
-	read_received_message = read(new_server_fd, received_info, MAXLINE);
-	printf("The order received is: %s\n", received_info);
-	// "grep 'linux' test.txt"
-	result = getResult(received_info);
-	printf("Query result is: %s\n", result.c_str());
-	send(new_server_fd, result.c_str(), MAXLINE, 0);
-
+	return 0;
 }
 
