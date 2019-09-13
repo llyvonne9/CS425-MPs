@@ -6,7 +6,10 @@
 #include <string.h> 
 #include <iostream>
 #include <thread>
+#include <fstream>
 using namespace std;
+
+#define BUFFER_SIZE 10240
 
 struct server_para {
     //char *addr;
@@ -91,7 +94,7 @@ int init_para(int argc, char const *argv[]){
     if (cmd == ""){
         //printf("Error: -m is required. Use -m \"grep ...\"");
         //return -1;
-        cmd = "grep linux test.log";
+        cmd = "grep -E '^[0-9]*[a-z]{5}' ";
     }
     //No server is specified => do only local search
     if (num_server ==0){
@@ -102,34 +105,59 @@ int init_para(int argc, char const *argv[]){
     }
     return 0;
 }
+
+void run_cmd(int i){
+    struct sockaddr_in serv_addr;      
+    int sock;
+    int valread; 
+    cout<<"Server "<<i<<":"<<serverlist[i].addr<<":"<<serverlist[i].port<<"\n";
+    init_socket_para(serv_addr, serverlist[i].addr.c_str(), serverlist[i].port);
+    connect_socket(sock, serv_addr);
+
+    //const char *hello = "Hello from client"; 
+    //send(sock , hello , strlen(hello) , 0 ); 
+    printf("cmd before:%s\n",cmd.c_str());
+    send(sock, (cmd + "vm" + to_string(i + 1) + ".log").c_str(), cmd.length(), 0);
+    printf("cmd sent %s \n ", cmd.c_str()); 
+
+    char buffer[BUFFER_SIZE] = {0}; 
+    string res = "";
+
+    ofstream myfile;
+    myfile.open ("result_received_" + to_string(i + 1) +".txt");
+    while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
+        printf("read=%d bits from server-%d\n",valread, i);
+        //printf("%s",buffer ); 
+        if (valread < BUFFER_SIZE-1){
+            char sbuff[valread];
+            memcpy(sbuff, &buffer[0], valread - 1);
+            sbuff[valread - 1] = '\0';
+            res += sbuff;
+            break;
+        }
+
+        res += buffer;
+    }
+    myfile << res;
+    myfile.close();
+
+    // printf("server-%d's msg: %s\n",i, res.c_str());
+}
    
 int main(int argc, char const *argv[]) 
 { 
-    int valread; 
     //int *sock;
     //struct sockaddr_in *serv_addr;
 
-    //Read parameters
+    //Read parameters, set num_server, serverlist, cmd
     init_para(argc, argv);
+    thread threads[num_server];
 
-    //init_socket_para(serv_addr);
     for (int i=0;i<num_server;i++){  
-        struct sockaddr_in serv_addr;      
-        int sock;
-        cout<<"Server "<<i<<":"<<serverlist[i].addr<<":"<<serverlist[i].port<<"\n";
-        init_socket_para(serv_addr, serverlist[i].addr.c_str(), serverlist[i].port);
-        connect_socket(sock, serv_addr);
-
-        //const char *hello = "Hello from client"; 
-        //send(sock , hello , strlen(hello) , 0 ); 
-        send(sock, cmd.c_str(), cmd.length(), 0);
-        printf("cmd sent\n"); 
-
-        char buffer[1024] = {0}; 
-        valread = read( sock , buffer, 1024); 
-        printf("%s\n",buffer ); 
+        threads[i] = thread(run_cmd, i);
+        threads[i].join();
     }
-    return 0; 
 
+    return 0; 
 } 
 

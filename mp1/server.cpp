@@ -5,15 +5,17 @@
 #include <netinet/in.h> 
 #include <unistd.h> 
 #include <iostream>
+#include <fstream>
 
 #define PORT 8080
 #define QUEUE_SIZE 10
-#define MAXLINE 1024
+//#define MAXLINE 1024
+#define BUFFER_SIZE 10240
 
 using namespace std;
 string getResult(const char *cmd) {
 	// char* res1;
-	char res[MAXLINE];
+	char res[BUFFER_SIZE];
 	string result = "";
 	int rc = 0;
 	FILE *fp = popen(cmd, "r");
@@ -35,7 +37,7 @@ string getResult(const char *cmd) {
 int main(int arc, char const *argv[]) {
 	int server_fd, new_server_fd;
 	struct sockaddr_in addr;
-	char received_info[MAXLINE] = {0}; 
+	char received_info[BUFFER_SIZE] = {0}; 
 	string result;
 	int read_received_message;
     int addrlen = sizeof(addr); 
@@ -67,12 +69,26 @@ int main(int arc, char const *argv[]) {
 			exit(1);
 		}
 
-		read_received_message = read(new_server_fd, received_info, MAXLINE);
+		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
 		printf("The order received is: %s\n", received_info);
-		// "grep 'linux' test.txt"
 		result = getResult(received_info);
 		printf("Query result is: %s\n", result.c_str());
-		send(new_server_fd, result.c_str(), MAXLINE, 0);
+		ofstream myfile;
+		myfile.open ("result_sent.txt");
+		myfile << result;
+		myfile.close();
+
+		int total_sent = 0;
+		printf("result length=%lu\n",result.length());
+		while (total_sent < result.length()){
+			int n_bytes = result.length() - total_sent < BUFFER_SIZE - 1? result.length() - total_sent: BUFFER_SIZE - 1;
+			send(new_server_fd, result.c_str() + total_sent, n_bytes, 0);
+			if (result.length() - total_sent == BUFFER_SIZE - 1)
+				send(new_server_fd, "\0", 1, 0); 
+			total_sent += n_bytes;
+			printf("n_bytes=%d\n", n_bytes);
+		}
+		printf("done. total_sent=%d\n", total_sent);
 	}
 	return 0;
 }
