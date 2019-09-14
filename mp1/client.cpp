@@ -4,9 +4,9 @@
 #include <arpa/inet.h> 
 #include <unistd.h> 
 #include <string.h> 
-#include <iostream>
 #include <thread>
 #include <fstream>
+#include <iostream>
 using namespace std;
 
 #define BUFFER_SIZE 10240
@@ -56,6 +56,7 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
 
 //Set parameters
 int init_para(int argc, char const *argv[]){
+    cmd = "";
     for (int i = 1; i < argc; i++) {
         if ((string) argv[i] == "-m"){
             if ((argc>i+1) && (((string) argv[i+1]).substr(0,4)=="grep")){
@@ -94,7 +95,8 @@ int init_para(int argc, char const *argv[]){
     if (cmd == ""){
         //printf("Error: -m is required. Use -m \"grep ...\"");
         //return -1;
-        cmd = "grep -E '^[0-9]*[a-z]{5}' ";
+        cmd = "grep -E '^[0-9]*[a-z]{5}' vm2.log";
+        // cmd = "grep '[A-Za-z]+[0-9]*'";
     }
     //No server is specified => do only local search
     if (num_server ==0){
@@ -116,29 +118,35 @@ void run_cmd(int i){
 
     //const char *hello = "Hello from client"; 
     //send(sock , hello , strlen(hello) , 0 ); 
-    printf("cmd before:%s\n",cmd.c_str());
-    send(sock, (cmd + "vm" + to_string(i + 1) + ".log").c_str(), cmd.length(), 0);
-    printf("cmd sent %s \n ", cmd.c_str()); 
+    // string cur_cmd = cmd + " vm" + to_string(i + 1) + ".log";
+    string cur_cmd = cmd;
+    send(sock, cur_cmd.c_str(), cur_cmd.length(), 0);
+    printf("cmd sent %s \n ", cur_cmd.c_str()); 
 
     char buffer[BUFFER_SIZE] = {0}; 
     string res = "";
 
     ofstream myfile;
-    myfile.open ("result_received_" + to_string(i + 1) +".txt");
+    myfile.open ("result_received_" + to_string(i + 1) +".txt", ios::app);
     while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
-        printf("read=%d bits from server-%d\n",valread, i);
-        //printf("%s",buffer ); 
+        printf("read=%d bits from server-%d\n",valread, i); 
+        // if (valread < BUFFER_SIZE-1){
+        //     char sbuff[valread];
+        //     memcpy(sbuff, &buffer[0], valread - 1);
+        //     sbuff[valread - 1] = '\0';
+        //     res += sbuff;
+        //     break;
+        // }
         if (valread < BUFFER_SIZE-1){
-            char sbuff[valread];
-            memcpy(sbuff, &buffer[0], valread - 1);
-            sbuff[valread - 1] = '\0';
-            res += sbuff;
-            break;
+            buffer[valread] = '\0';
         }
-
         res += buffer;
+        myfile << buffer;
     }
-    myfile << res;
+
+    if(strcmp(res.c_str(), "-1") == 0) cout << "No Result Found " << endl;
+    else cout << "\nTotal " << std::count(res.begin(), res.end(), '\n') + 1 << " lines are retrieved" << std::endl;
+    
     myfile.close();
 
     // printf("server-%d's msg: %s\n",i, res.c_str());
