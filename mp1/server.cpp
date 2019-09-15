@@ -26,7 +26,7 @@ string getResult(const char *cmd) {
 	}
 	while(fgets(res, sizeof(res), fp) != NULL) {
 		result += res;
-		printf("Command %s's output: %s\n", cmd, res);
+		// printf("Command %s's output: %s\n", cmd, res);
 	}
 	rc = pclose(fp);
 	if(rc == -1) {
@@ -80,6 +80,7 @@ int main(int arc, char const *argv[]) {
 			cout << "No Result Found \n" << endl;
 			string error_msg = to_string(-1) + '\0';
 			send(new_server_fd, error_msg.c_str(), error_msg.length(), 0);
+			close(new_server_fd);
 		} else {
 			// printf("Query result is: %s\n", result.c_str());
 			ofstream myfile;

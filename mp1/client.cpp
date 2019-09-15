@@ -4,11 +4,14 @@
 #include <arpa/inet.h> 
 #include <unistd.h> 
 #include <string.h> 
+#include <netdb.h>
 #include <thread>
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include <cstdio>
 using namespace std;
+using namespace std::chrono;
 
 #define BUFFER_SIZE 10240
 
@@ -22,6 +25,42 @@ struct server_para {
 int num_server = 0;
 string cmd = "";
 struct server_para *serverlist;
+string log_name = "vm";
+
+int connect_by_host(int &sock, server_para &server){   
+    struct addrinfo hints = {}, *addrs;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    char port_str[16] = {};
+    sprintf(port_str, "%d", server.port);
+    const char *hostname = server.hostname.c_str();
+    int err = getaddrinfo(hostname, port_str, &hints, &addrs);
+    if (err != 0){
+        //fprintf(stderr, "%s: %s\n", hostname, gai_strerror(err));
+        printf("\nInvalid address/ Address not supported \n");
+        return -1;
+    }
+    //for(struct addrinfo *addr = addrs; addr != NULL; addr = addr->ai_next){
+    struct addrinfo *addr = addrs;
+        sock = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+        // cout<< addr->ai_addr <<"\n";
+        // cout<<"sock="<<sock<<"\n";
+        if (sock<0){
+            err = errno; 
+            close(sock);
+            printf("\n Socket creation error \n"); 
+            //fprintf(stderr, "%s: %s\n", hostname, strerror(err));
+            return -1;
+        }
+        if (connect(sock, addr->ai_addr, addr->ai_addrlen) < 0){ 
+            printf("\nConnection Failed \n"); 
+            return -1; 
+        }
+    //}
+    freeaddrinfo(addrs);
+    return sock;
+}
 
 int init_socket_para(struct sockaddr_in &serv_addr, const char *addr, int port){  
     
@@ -29,7 +68,7 @@ int init_socket_para(struct sockaddr_in &serv_addr, const char *addr, int port){
     serv_addr.sin_port = htons(port); 
     //cout<<addr<<"\n";
 
-    // Convert IPv4 and IPv6 addresses from text to binary form 
+    // Convert IPv4 addresses from text to binary form 
     if(inet_pton(AF_INET, addr, &serv_addr.sin_addr)<=0)  
     { 
         printf("\nInvalid address/ Address not supported \n"); //Why "localhost" not work?
@@ -92,6 +131,8 @@ int init_para(int argc, char const *argv[]){
                 throw;
             }
             fclose(f);
+        } else if ((string) argv[i] == "-l"){
+            log_name = (string) argv[++i];
         }
     }
     //No command is given
@@ -111,23 +152,31 @@ int init_para(int argc, char const *argv[]){
     return 0;
 }
 
-void run_cmd(int i, int lines[]){
+int run_cmd(int i, int lines[]){
     struct sockaddr_in serv_addr;      
     int sock;
     int valread; 
-    cout<<"Server "<<i<<":"<<serverlist[i].addr<<":"<<serverlist[i].port<<"\n";
-    init_socket_para(serv_addr, serverlist[i].addr.c_str(), serverlist[i].port);
-    connect_socket(sock, serv_addr);
+    //*** For IP address
+    //init_socket_para(serv_addr, serverlist[i].addr.c_str(), serverlist[i].port);
+    //if (connect_socket(sock, serv_addr)<0){return -1;}
+    //cout<<"Server "<<i<<":"<<serverlist[i].addr<<":"<<serverlist[i].port<<"\n";
+
+    //*** For texture Hostname
+    if (connect_by_host(sock, serverlist[i])<0){
+        return -1;
+    }
+    cout<<"Server "<<i<<":"<<serverlist[i].hostname<<":"<<serverlist[i].port<<"\n";
 
     //const char *hello = "Hello from client"; 
     //send(sock , hello , strlen(hello) , 0 ); 
-    string cur_cmd = cmd + " vm" + to_string(i + 1) + ".log";
+    string cur_cmd = cmd + " " + log_name + to_string(i + 1) + ".log";
     send(sock, cur_cmd.c_str(), cur_cmd.length(), 0);
     printf("cmd sent %s \n ", cur_cmd.c_str()); 
 
     char buffer[BUFFER_SIZE] = {0}; 
     string res = "";
-
+    string res_file_name = "result_received_" + to_string(i + 1) +".txt";
+    remove(res_file_name.c_str());
     ofstream myfile;
     myfile.open ("result_received_" + to_string(i + 1) +".txt", ios::app);
     while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
@@ -147,21 +196,26 @@ void run_cmd(int i, int lines[]){
     }
     myfile << res;
     printf("Total received bytes: %lu", res.length());
+    lines[i] = 0;
     if(strcmp(res.c_str(), "-1") == 0) {
-        cout << "No Result Found " << endl;
-        lines[i] = 0;
+        cout << "\nNo Result Found " << endl;
     } else {
         cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
         lines[i] = count(res.begin(), res.end(), '\n');
     }
 
+    cout << "End of VM "<< to_string(i + 1) << endl;
+
     myfile.close();
+    return 0;
 
     // printf("server-%d's msg: %s\n",i, res.c_str());
 }
    
 int main(int argc, char const *argv[]) 
 { 
+    //milliseconds ms1 = duration_cast< milliseconds >(system_clock::now().time_since_epoch().count);
+    long ms1 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     //int *sock;
     //struct sockaddr_in *serv_addr;
 
@@ -175,14 +229,21 @@ int main(int argc, char const *argv[])
         threads[i].join();
     }
 
+    long ms2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
     printf("======================== The result statistics: ======================== \n ");
 
     printf("For query %s: \n", cmd.c_str());
 
     for (int i=0;i<num_server;i++){  
-        cout << "Machine vm " << serverlist[i].hostname << " has " << lines[i] << " lines of results. Stored in file result_received_" << to_string(i + 1) << ".txt" << endl;
-    }
+        if(lines[i] != 0) {
+            cout << "Machine vm " << serverlist[i].hostname << " has " << lines[i] << " lines of results. Stored in file result_received_" << to_string(i + 1) << ".txt" << endl;
+        } else{
+            cout << "Machine vm " << serverlist[i].hostname << " has no results for this search." << endl;
+        } 
+    }       
 
+    cout<<"time elapse = "<<ms2-ms1<<" ms\n";
 
     return 0; 
 } 
