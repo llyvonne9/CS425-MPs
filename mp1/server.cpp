@@ -6,6 +6,7 @@
 #include <unistd.h> 
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 using namespace std;
 
 #define PORT 8080
@@ -99,7 +100,7 @@ int main(int arc, char const *argv[]) {
 			}
 			close(new_server_fd);
 			printf("done. total_sent=%d\n", total_sent);
-			cout << "Total " << std::count(result.begin(), result.end(), '\n') << " lines are retrieved" << std::endl;
+			cout << "Total " << count(result.begin(), result.end(), '\n') << " lines are retrieved" << std::endl;
 		}
 
 		

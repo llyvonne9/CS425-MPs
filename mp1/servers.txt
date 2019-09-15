@@ -1,3 +1,13 @@
-2
-127.0.0.1	8080
-127.0.0.1	8080
+1
+172.22.154.145 fa19-cs425-g44-01.cs.illinois.edu 8080
+172.22.156.145 fa19-cs425-g44-02.cs.illinois.edu 8080
+172.22.152.150 fa19-cs425-g44-03.cs.illinois.edu 8080
+172.22.154.146 fa19-cs425-g44-04.cs.illinois.edu 8080
+172.22.156.146 fa19-cs425-g44-05.cs.illinois.edu 8080
+172.22.152.151 fa19-cs425-g44-06.cs.illinois.edu 8080
+172.22.154.147 fa19-cs425-g44-07.cs.illinois.edu 8080
+172.22.156.147 fa19-cs425-g44-08.cs.illinois.edu 8080
+172.22.152.152 fa19-cs425-g44-09.cs.illinois.edu 8080
+172.22.154.148 fa19-cs425-g44-10.cs.illinois.edu 8080
+127.0.0.1 local 8080
+

@@ -7,6 +7,7 @@
 #include <thread>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 using namespace std;
 
 #define BUFFER_SIZE 10240
@@ -14,6 +15,7 @@ using namespace std;
 struct server_para {
     //char *addr;
     string addr = "127.0.0.1";
+    string hostname = "local";
     int port = 8080;
 };
 
@@ -82,6 +84,7 @@ int init_para(int argc, char const *argv[]){
                 for (int i=0; i<num_server; i++){
                     fgets(line, 1024, f);
                     serverlist[i].addr = strtok(line, delim);
+                    serverlist[i].hostname = strtok(NULL, delim);
                     serverlist[i].port = atoi(strtok(NULL, delim));
                 }
             } catch (...){
@@ -95,7 +98,7 @@ int init_para(int argc, char const *argv[]){
     if (cmd == ""){
         //printf("Error: -m is required. Use -m \"grep ...\"");
         //return -1;
-        cmd = "grep -E '^[0-9]*[a-z]{5}' vm2.log";
+        cmd = "grep -E '^[0-9]*[a-z]{5}'";
         // cmd = "grep '[A-Za-z]+[0-9]*'";
     }
     //No server is specified => do only local search
@@ -108,7 +111,7 @@ int init_para(int argc, char const *argv[]){
     return 0;
 }
 
-void run_cmd(int i){
+void run_cmd(int i, int lines[]){
     struct sockaddr_in serv_addr;      
     int sock;
     int valread; 
@@ -118,8 +121,7 @@ void run_cmd(int i){
 
     //const char *hello = "Hello from client"; 
     //send(sock , hello , strlen(hello) , 0 ); 
-    // string cur_cmd = cmd + " vm" + to_string(i + 1) + ".log";
-    string cur_cmd = cmd;
+    string cur_cmd = cmd + " vm" + to_string(i + 1) + ".log";
     send(sock, cur_cmd.c_str(), cur_cmd.length(), 0);
     printf("cmd sent %s \n ", cur_cmd.c_str()); 
 
@@ -129,7 +131,7 @@ void run_cmd(int i){
     ofstream myfile;
     myfile.open ("result_received_" + to_string(i + 1) +".txt", ios::app);
     while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
-        printf("read=%d bits from server-%d\n",valread, i); 
+        // printf("read=%d bits from server-%d\n",valread, i); 
         // if (valread < BUFFER_SIZE-1){
         //     char sbuff[valread];
         //     memcpy(sbuff, &buffer[0], valread - 1);
@@ -141,12 +143,18 @@ void run_cmd(int i){
             buffer[valread] = '\0';
         }
         res += buffer;
-        myfile << buffer;
+        
+    }
+    myfile << res;
+    printf("Total received bytes: %lu", res.length());
+    if(strcmp(res.c_str(), "-1") == 0) {
+        cout << "No Result Found " << endl;
+        lines[i] = 0;
+    } else {
+        cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
+        lines[i] = count(res.begin(), res.end(), '\n');
     }
 
-    if(strcmp(res.c_str(), "-1") == 0) cout << "No Result Found " << endl;
-    else cout << "\nTotal " << std::count(res.begin(), res.end(), '\n') + 1 << " lines are retrieved" << std::endl;
-    
     myfile.close();
 
     // printf("server-%d's msg: %s\n",i, res.c_str());
@@ -160,11 +168,21 @@ int main(int argc, char const *argv[])
     //Read parameters, set num_server, serverlist, cmd
     init_para(argc, argv);
     thread threads[num_server];
+    int lines[num_server];
 
     for (int i=0;i<num_server;i++){  
-        threads[i] = thread(run_cmd, i);
+        threads[i] = thread(run_cmd, i, &lines[0]);
         threads[i].join();
     }
+
+    printf("======================== The result statistics: ======================== \n ");
+
+    printf("For query %s: \n", cmd.c_str());
+
+    for (int i=0;i<num_server;i++){  
+        cout << "Machine vm " << serverlist[i].hostname << " has " << lines[i] << " lines of results. Stored in file result_received_" << to_string(i + 1) << ".txt" << endl;
+    }
+
 
     return 0; 
 } 
