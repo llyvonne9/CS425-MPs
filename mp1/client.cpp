@@ -15,6 +15,7 @@ using namespace std::chrono;
 
 #define BUFFER_SIZE 10240
 
+//Server parameters to assign and to print
 struct server_para {
     //char *addr;
     string addr = "127.0.0.1";
@@ -27,6 +28,7 @@ string cmd = "";
 struct server_para *serverlist;
 string log_name = "vm";
 
+//Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server){   
     struct addrinfo hints = {}, *addrs;
     hints.ai_family = AF_INET;
@@ -62,6 +64,7 @@ int connect_by_host(int &sock, server_para &server){
     return sock;
 }
 
+//Initialize network parameters with IPV4 adress
 int init_socket_para(struct sockaddr_in &serv_addr, const char *addr, int port){  
     
     serv_addr.sin_family = AF_INET; 
@@ -77,6 +80,7 @@ int init_socket_para(struct sockaddr_in &serv_addr, const char *addr, int port){
     return 0;
 }
 
+//Connect to a server using IPV4 address
 int connect_socket(int &sock, struct sockaddr_in &serv_addr){
 
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
@@ -95,7 +99,7 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
     return sock;
 }
 
-//Set parameters
+//Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
     cmd = "";
     for (int i = 1; i < argc; i++) {
@@ -152,6 +156,7 @@ int init_para(int argc, char const *argv[]){
     return 0;
 }
 
+//This is the main procedure to run on Server i
 int run_cmd(int i, int lines[]){
     struct sockaddr_in serv_addr;      
     int sock;
@@ -212,6 +217,7 @@ int run_cmd(int i, int lines[]){
     // printf("server-%d's msg: %s\n",i, res.c_str());
 }
    
+//Here we use threads to query each server individually
 int main(int argc, char const *argv[]) 
 { 
     //milliseconds ms1 = duration_cast< milliseconds >(system_clock::now().time_since_epoch().count);
@@ -226,6 +232,8 @@ int main(int argc, char const *argv[])
 
     for (int i=0;i<num_server;i++){  
         threads[i] = thread(run_cmd, i, &lines[0]);
+    }
+    for (int i=0;i<num_server;i++){  
         threads[i].join();
     }
 
