@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import os
 import sys
 import subprocess
@@ -9,4 +8,4 @@ for i in range(1, 11):
 
     os.system('scp run.sh client.cpp server.cpp servers.txt %s:/home/deploy/mp1' %(server))
     os.system('ssh -t %s "sudo chmod -R g+rw /home/deploy/mp1; sudo pkill -f \"server\""' %(server))
-    subprocess.Popen(['ssh', server, "sh /home/deploy/mp1/run.sh"])
+    subprocess.Popen(['ssh', server, "sh /home/deploy/mp1/run.sh"]) 

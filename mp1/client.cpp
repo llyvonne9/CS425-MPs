@@ -215,7 +215,7 @@ int run_cmd(int i, int lines[]){
     return 0;
 
     // printf("server-%d's msg: %s\n",i, res.c_str());
-}
+} 
    
 //Here we use threads to query each server individually
 int main(int argc, char const *argv[]) 
