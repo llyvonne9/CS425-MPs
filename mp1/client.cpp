@@ -21,6 +21,7 @@ struct server_para {
     string addr = "127.0.0.1";
     string hostname = "local";
     int port = 8080;
+    int status = 0;
 };
 
 int num_server = 0;
@@ -168,6 +169,7 @@ int run_cmd(int i, int lines[]){
 
     //*** For texture Hostname
     if (connect_by_host(sock, serverlist[i])<0){
+        serverlist[i].status = -1;
         return -1;
     }
     cout<<"Server "<<i<<":"<<serverlist[i].hostname<<":"<<serverlist[i].port<<"\n";
@@ -243,12 +245,16 @@ int main(int argc, char const *argv[])
 
     printf("For query %s: \n", cmd.c_str());
 
-    for (int i=0;i<num_server;i++){  
+    for (int i=0;i<num_server;i++){
+      if (serverlist[i].status == -1){
+        cout << "Server is down.\n";
+      }  else {
         if(lines[i] != 0) {
             cout << "Machine vm " << serverlist[i].hostname << " has " << lines[i] << " lines of results. Stored in file result_received_" << to_string(i + 1) << ".txt" << endl;
         } else{
             cout << "Machine vm " << serverlist[i].hostname << " has no results for this search." << endl;
         } 
+      }
     }       
 
     cout<<"time elapse = "<<ms2-ms1<<" ms\n";
