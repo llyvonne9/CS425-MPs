@@ -112,9 +112,9 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
     return sock;
 }
 
-int heartbeat(){	//UDP
+int heartbeat(string IP){	//UDP send heartbeat to IP
 	int server_fd, new_server_fd;
-	struct sockaddr_in servaddr, cliaddr;
+	struct sockaddr_in servaddr;//, cliaddr;
 	
 	int read_status;
     int addrlen = sizeof(servaddr); 
@@ -130,24 +130,24 @@ int heartbeat(){	//UDP
 	}
 
     memset(&servaddr, 0, sizeof(servaddr)); 
-    memset(&cliaddr, 0, sizeof(cliaddr)); 
+    //memset(&cliaddr, 0, sizeof(cliaddr)); 
 
     // Filling server information
 	servaddr.sin_family = AF_INET; //IPv4
-	servaddr.sin_addr.s_addr = INADDR_ANY;
+	servaddr.sin_addr.s_addr = inet_addr(IP.c_str()); 
 	servaddr.sin_port = htons(PORT_HB);
 
 	//bind socket to the address
-	if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-		perror("[Error]: Fail to bind to address");
-		exit(1);
-	}
+	//if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+	//	perror("[Error]: Fail to bind to address");
+	//	exit(1);
+	//}
 
 	int n_heartbeat = 0;
 	//keep listen to request
 	while(true){
 		char received_info[BUFFER_SIZE] = {0}; 
-		int len, n; 
+		int n; socklen_t len = sizeof(servaddr);
     	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
         //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
         //        &len); 
@@ -158,7 +158,7 @@ int heartbeat(){	//UDP
 
 		char* hello; sprintf(hello, "%d", id);
 		sendto(server_fd, (const char*) hello, strlen(hello),  
-        	MSG_CONFIRM, (const struct sockaddr *) &cliaddr, 
+        	MSG_CONFIRM, (const struct sockaddr *) &servaddr, 
             len); 
     	printf("Heartbeat %d sent\n", n_heartbeat++);
     	std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
@@ -167,7 +167,7 @@ int heartbeat(){	//UDP
 	return 0;
 }
 
-int monitor(string IP, int PORT){ //UDP
+int monitor(){ //UDP monitor heartbeat
 	int sockfd; 
     struct sockaddr_in	servaddr; 
   
@@ -181,15 +181,23 @@ int monitor(string IP, int PORT){ //UDP
       
     // Filling server information 
     servaddr.sin_family = AF_INET; 
-    servaddr.sin_port = htons(PORT); 
-    servaddr.sin_addr.s_addr = inet_addr(IP.c_str()); 
+    servaddr.sin_port = htons(PORT_HB); 
+    servaddr.sin_addr.s_addr = INADDR_ANY;
       
-    int n, len; 
+    // Bind the socket with the server address 
+    if ( bind(sockfd, (const struct sockaddr *)&servaddr,  
+            sizeof(servaddr)) < 0 ) 
+    { 
+        perror("bind failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+
+    int n; socklen_t len = sizeof(servaddr);
 	while(true){
 		char buffer[BUFFER_SIZE] = {0}; 
 	    n = recvfrom(sockfd, (char *)buffer, BUFFER_SIZE,  
 	                MSG_WAITALL, (struct sockaddr *) &servaddr, 
-	                (socklen_t*) &len); 
+	                &len); 
 	    buffer[n] = '\0'; 
 		printf("\nThe order received is: %s\n", buffer);
 		int nbr_id = stoi(buffer);
@@ -269,14 +277,14 @@ int main(int argc, char const *argv[]) {
 	for(int i=0; i++; i<4){printf("'%s'\n", ptr); neighbors[i].status = stoi(ptr); ptr = strtok(NULL, delim);}
 
 	//Send heartbeat to neighbors (UDP)
-	thread thread_HB;
-	thread_HB = thread(heartbeat);
+	thread thread_HBs[4];
+    for (int i=0;i<num_server;i++){ 
+		thread_HBs[i] = thread(heartbeat, neighbors[i].addr);
+	}
 
 	//Create a socket and listen to heartbeats from neighbors (UDP) by thread. Count timeout for each neighbor
-    thread thread_monitors[num_server];
-    for (int i=0;i<num_server;i++){ 
-		thread_monitors[i] = thread(monitor, neighbors[i].addr, neighbors[i].port);
-	}
+    thread thread_monitor;
+	thread_monitor = thread(monitor);
 
 	thread thread_intro_update;
 	thread_intro_update = thread(intro_update, sock);
