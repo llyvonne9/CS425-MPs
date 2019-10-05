@@ -17,6 +17,7 @@ using namespace std::chrono;
 
 #define BUFFER_SIZE 10240
 #define PORT_HB 8082
+#define PORT_TEST 8083
 
 //Server parameters to assign and to print
 struct server_para {
@@ -203,7 +204,7 @@ int monitor(string IP, int PORT){ //UDP
 int init_para(int argc, char const *argv[]){
 	introducer.port = 8081;
 	if (argc > 2){
-		introducer.hostname = (string) argv[2];
+		introducer.addr = (string) argv[2];
 	}
 	if (argc > 1){
 		try {
@@ -217,6 +218,21 @@ int init_para(int argc, char const *argv[]){
 		return -1;
 	}
 	return 0;
+}
+
+int intro_update(int sock){
+    int valread; 
+
+	while (true){
+    	char recv_info[BUFFER_SIZE] = {0}; 
+		valread = read(sock, recv_info, BUFFER_SIZE);
+		printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+		char delim[] = " ";
+		char *ptr = strtok(recv_info, delim); 
+		if (strcmp(ptr, "UPDATE")==0){
+			neighbors[stoi(strtok(NULL, delim))].status = stoi(strtok(NULL, delim));
+		}
+	}
 }
 
 int main(int argc, char const *argv[]) {
@@ -262,26 +278,38 @@ int main(int argc, char const *argv[]) {
 		thread_monitors[i] = thread(monitor, neighbors[i].addr, neighbors[i].port);
 	}
 
+	thread thread_intro_update;
+	thread_intro_update = thread(intro_update, sock);
+
 	long cur_time = 0;
 	while(true){
 		sleep(heartbeat_time/1000);
-	    for (int i=0;i<num_server;i++){ 
+		bool is_changed = false;
+	    for (int i=0;i<4;i++){ 
 			cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			if (cur_time - neighbors[i].check_time > wait_time){ 
 				if (neighbors[i].status == 1){
 					neighbors[i].status = 0;
 					//string cmd = "LEAVE_"+id+"_"+i;
 					char *tmp;
-					sprintf(tmp,"LEAVE_%d_%d",id,i);
+					sprintf(tmp,"FAIL_%d_%d",id,i);
 				    send(sock, (const char *)tmp, strlen(tmp), 0);
 				    printf("cmd sent %s \n ", cmd.c_str());
+				    is_changed = true;
 				}
 			} else{
 				if (neighbors[i].status == 0) {
 					neighbors[i].status = 1;
+					is_changed = true;
 				}
 			}
 		}
+	    ofstream myfile;
+		myfile.open ("nbr_state.txt");
+	    for (int i=0;i<4;i++){ 
+			myfile << i <<" "<<neighbors[i].addr<<" "<<neighbors[i].status<<"\n";
+		}
+		myfile.close();
 	}
 	
 	return 0;
