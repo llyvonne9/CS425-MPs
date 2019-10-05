@@ -17,8 +17,9 @@ using namespace std;
 #define QUEUE_SIZE 10
 #define BUFFER_SIZE 10240
 
-#define FAIL "FAIL"
-#define JOIN "JOIN"
+#define FAIL -1
+#define JOIN 1
+#define LEAVE 0
 
 vector<string> split (string s, string delimiter) {
     size_t pos_start = 0, pos_end, delim_len = delimiter.length();
@@ -35,11 +36,57 @@ vector<string> split (string s, string delimiter) {
     return res;
 }
 
+map<int, string> getIPs (string delimiter) {
+	map<int, string> map;
+	char szTest[100] = {0};
+ 
+	FILE *fp = fopen("servers.txt", "r");
+	if(NULL == fp)
+	{
+		printf("failed to open servers.txt\n");
+		return map;
+	}
+ 	int i = 0;	
+	while(!feof(fp))
+	{
+		memset(szTest, 0, sizeof(szTest));
+		fgets(szTest, sizeof(szTest) - 1, fp); // 包含了换行符
+		vector<string> ips = split(szTest, " ");
+		if(i < 10) map.insert(std::make_pair(atoi(ips[0]), ips[1]));
+		i++;
+	}
+ 
+	fclose(fp);
+ 
+	return map;
+}
+
+void introduceNeighbors(int type, int idx, map<int, string> ips, int new_server_fd) {
+	string msg = "NEIGHBORS ";
+	for(int i = 0; i < 4; i++) {
+		int neighborIndex = (i + idx + 1) % 10;
+		sting ip = ips[neighborIndex];
+		msg += neighborIndex + " " + states + " " + ip + " ";
+		send(new_server_fd, msg.c_str(), msg.length(), 0);
+		msg = "NEIGHBORS ";
+	}
+	
+}
+
+void updateStatus(int type, int idx, int new_server_fd) {
+	for(int i = 0; i < 4; i++) {
+		int neighborIndex = (i + idx + 1) % 10;
+		string msg = "UPDATE " + to_string(i + 1) + " " + to_string(type);
+		send(new_server_fd, msg.c_str(), msg.length(), 0);
+	}
+}
+
 int main(int arc, char const *argv[]) {
-	map<string, string> states;
+	map<int, int> states;
 	int server_fd, new_server_fd;
 	struct sockaddr_in addr;
 	string delimiter = "_";
+	map<int, string> ips = getIPs(" ");
 	
 	string result;
 	int read_received_message;
@@ -60,7 +107,8 @@ int main(int arc, char const *argv[]) {
 		perror("[Error]: Fail to bind to address");
 		exit(1);
 	}
-
+	string d = " ";
+    getIP(d);
 	while(true){
 		char received_info[BUFFER_SIZE] = {0}; 
 		if(listen(server_fd, QUEUE_SIZE) < 0) {
@@ -79,13 +127,22 @@ int main(int arc, char const *argv[]) {
 
 	    vector<string> segment = split (received_info, delimiter);
 
-	    string type = segment[0];
-	    string idx = segment[1];
-	    states.insert(std::make_pair(idx, type));
+	    int type = 0;
 	    string finder = "";
-	    if(strcmp(type.c_str(), FAIL) == 0) {
+	    int idx = atoi(segment[1]);
+	    if(strcmp(segment[0].c_str(), "FAIL") == 0) {
+	    	type = FAIL;
 	    	finder = segment[2];
+	    } else if(strcmp(segment[0].c_str(), "LEAVE") == 0) {
+	    	type = LEAVE;
+	    } else {
+	    	type = JOIN;
+	    	introduceNeighbors(type, idx, ips, new_server_fd);
 	    }
+
+	    updateStatus(type, idx, new_server_fd);
+	    states.insert(std::make_pair(idx, type));
+	    
 
 	    ofstream myfile;
     	myfile.open("log.txt", ios::app);
@@ -95,7 +152,8 @@ int main(int arc, char const *argv[]) {
     	res += ctime(&end_time);
     	myfile << res;
     	myfile.close();
-
+    	
+    	
 
 		
 	}
