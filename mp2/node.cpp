@@ -16,13 +16,15 @@ using namespace std;
 using namespace std::chrono;
 
 #define BUFFER_SIZE 10240
+#define PORT_HB 8082
+#define PORT_TEST 8083
 
 //Server parameters to assign and to print
 struct server_para {
     //char *addr;
     string addr = "127.0.0.1";
     string hostname = "local";
-    int port = 8080;
+    int port = PORT_HB;
     long check_time = 0;
     int status = 1;
 };
@@ -133,7 +135,7 @@ int heartbeat(){	//UDP
     // Filling server information
 	servaddr.sin_family = AF_INET; //IPv4
 	servaddr.sin_addr.s_addr = INADDR_ANY;
-	servaddr.sin_port = htons(PORT);
+	servaddr.sin_port = htons(PORT_HB);
 
 	//bind socket to the address
 	if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
@@ -154,17 +156,18 @@ int heartbeat(){	//UDP
 		//int nbr_id = stoi(received_info);
 		//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-		string hello = (string) id;
-		sendto(server_fd, hello.c_str(), hello.length(),  
+		char* hello; sprintf(hello, "%d", id);
+		sendto(server_fd, (const char*) hello, strlen(hello),  
         	MSG_CONFIRM, (const struct sockaddr *) &cliaddr, 
             len); 
     	printf("Heartbeat %d sent\n", n_heartbeat++);
     	std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
 
 	}
+	return 0;
 }
 
-int monitor(string IP){ //UDP
+int monitor(string IP, int PORT){ //UDP
 	int sockfd; 
     struct sockaddr_in	servaddr; 
   
@@ -179,17 +182,17 @@ int monitor(string IP){ //UDP
     // Filling server information 
     servaddr.sin_family = AF_INET; 
     servaddr.sin_port = htons(PORT); 
-    servaddr.sin_addr.s_addr = inet_addr(IP); 
+    servaddr.sin_addr.s_addr = inet_addr(IP.c_str()); 
       
     int n, len; 
 	while(true){
 		char buffer[BUFFER_SIZE] = {0}; 
 	    n = recvfrom(sockfd, (char *)buffer, BUFFER_SIZE,  
 	                MSG_WAITALL, (struct sockaddr *) &servaddr, 
-	                &len); 
+	                (socklen_t*) &len); 
 	    buffer[n] = '\0'; 
-		printf("\nThe order received is: %s\n", received_info);
-		int nbr_id = stoi(received_info);
+		printf("\nThe order received is: %s\n", buffer);
+		int nbr_id = stoi(buffer);
 		neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 	}  
@@ -201,7 +204,7 @@ int monitor(string IP){ //UDP
 int init_para(int argc, char const *argv[]){
 	introducer.port = 8081;
 	if (argc > 2){
-		introducer.hostname = (string) argv[2];
+		introducer.addr = (string) argv[2];
 	}
 	if (argc > 1){
 		try {
@@ -211,13 +214,28 @@ int init_para(int argc, char const *argv[]){
     	// atoi() would return 0, which is less helpful if it could be a valid value.
 		}
 	} else {
-		cout << "Need one parameter: id"
+		cout << "Need one parameter: id";
 		return -1;
 	}
 	return 0;
 }
 
-int main(int arc, char const *argv[]) {
+int intro_update(int sock){
+    int valread; 
+
+	while (true){
+    	char recv_info[BUFFER_SIZE] = {0}; 
+		valread = read(sock, recv_info, BUFFER_SIZE);
+		printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+		char delim[] = " ";
+		char *ptr = strtok(recv_info, delim); 
+		if (strcmp(ptr, "UPDATE")==0){
+			neighbors[stoi(strtok(NULL, delim))].status = stoi(strtok(NULL, delim));
+		}
+	}
+}
+
+int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
 
@@ -257,27 +275,41 @@ int main(int arc, char const *argv[]) {
 	//Create a socket and listen to heartbeats from neighbors (UDP) by thread. Count timeout for each neighbor
     thread thread_monitors[num_server];
     for (int i=0;i<num_server;i++){ 
-		thread_monitors = thread(monitor, neighbors[i].addr);
+		thread_monitors[i] = thread(monitor, neighbors[i].addr, neighbors[i].port);
 	}
+
+	thread thread_intro_update;
+	thread_intro_update = thread(intro_update, sock);
 
 	long cur_time = 0;
 	while(true){
 		sleep(heartbeat_time/1000);
-	    for (int i=0;i<num_server;i++){ 
+		bool is_changed = false;
+	    for (int i=0;i<4;i++){ 
 			cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			if (cur_time - neighbors[i].check_time > wait_time){ 
 				if (neighbors[i].status == 1){
 					neighbors[i].status = 0;
-					string cmd = "LEAVE_"+id+"_"+i;
-				    send(sock, cmd.c_str(), cmd.length(), 0);
+					//string cmd = "LEAVE_"+id+"_"+i;
+					char *tmp;
+					sprintf(tmp,"FAIL_%d_%d",id,i);
+				    send(sock, (const char *)tmp, strlen(tmp), 0);
 				    printf("cmd sent %s \n ", cmd.c_str());
+				    is_changed = true;
 				}
 			} else{
 				if (neighbors[i].status == 0) {
 					neighbors[i].status = 1;
+					is_changed = true;
 				}
 			}
 		}
+	    ofstream myfile;
+		myfile.open ("nbr_state.txt");
+	    for (int i=0;i<4;i++){ 
+			myfile << i <<" "<<neighbors[i].addr<<" "<<neighbors[i].status<<"\n";
+		}
+		myfile.close();
 	}
 	
 	return 0;
