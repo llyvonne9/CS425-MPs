@@ -62,22 +62,65 @@ map<int, string> getIPs (string delimiter) {
 }
 
 void introduceNeighbors(int type, int idx, map<int, string> ips, int new_server_fd) {
+	int sock = 0, valread; 
+    struct sockaddr_in serv_addr; 
+    char buffer[1024] = {0}; 
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
+    { 
+        printf("\n Socket creation error \n"); 
+    } 
+   
+    serv_addr.sin_family = AF_INET; 
+    serv_addr.sin_port = htons(PORT); 
+       
+    // Convert IPv4 and IPv6 addresses from text to binary form 
+    if(inet_pton(AF_INET, ips[idx], &serv_addr.sin_addr)<=0)  
+    { 
+        printf("\nInvalid address/ Address not supported \n"); 
+    } 
+   
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
+    { 
+        printf("\nConnection Failed \n"); 
+    }  
+
 	string msg = "NEIGHBORS ";
 	for(int i = 0; i < 4; i++) {
 		int neighborIndex = (i + idx + 1) % 10;
 		sting ip = ips[neighborIndex];
 		msg += neighborIndex + " " + states + " " + ip + " ";
-		send(new_server_fd, msg.c_str(), msg.length(), 0);
-		msg = "NEIGHBORS ";
 	}
+
+	send(sock, msg.c_str(), msg.length(), 0);
+	printf("NEIGHBORS info sent to new join node. \n"); 
+    valread = read( sock , buffer, 1024); 
 	
 }
 
 void updateStatus(int type, int idx, int new_server_fd) {
+	int sock = 0, valread; 
+    struct sockaddr_in serv_addr; 
+    char buffer[1024] = {0}; 
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
+    { 
+        printf("\n Socket creation error \n"); 
+    } 
+   
+    serv_addr.sin_family = AF_INET; 
+    serv_addr.sin_port = htons(PORT); 
+
+
 	for(int i = 0; i < 4; i++) {
 		int neighborIndex = (i + idx + 1) % 10;
+		if(inet_pton(AF_INET, ips[neighborIndex], &serv_addr.sin_addr)<=0) { 
+	        printf("\nInvalid address/ Address not supported \n"); 
+	    } 
+	   
+	    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) { 
+	        printf("\nConnection Failed \n"); 
+	    }  
 		string msg = "UPDATE " + to_string(i + 1) + " " + to_string(type);
-		send(new_server_fd, msg.c_str(), msg.length(), 0);
+		send(sock, msg.c_str(), msg.length(), 0);
 	}
 }
 
@@ -152,8 +195,6 @@ int main(int arc, char const *argv[]) {
     	res += ctime(&end_time);
     	myfile << res;
     	myfile.close();
-    	
-    	
 
 		
 	}
