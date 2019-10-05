@@ -111,89 +111,10 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
 }
 
 int heartbeat(){	//UDP
-	int server_fd, new_server_fd;
-	struct sockaddr_in servaddr, cliaddr;
-	
-	int read_status;
-    int addrlen = sizeof(servaddr); 
-
-    //struct timeval tp;
-	//gettimeofday(&tp, NULL);
-	//neighbors[nbr_id].check_time = tp.tv_sec * 1000 + tp.tv_usec / 1000; //get millisecond
-
-	server_fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if(server_fd == 0) {
-		perror("[Error]: Fail to create socket");
-		exit(1);
-	}
-
-    memset(&servaddr, 0, sizeof(servaddr)); 
-    memset(&cliaddr, 0, sizeof(cliaddr)); 
-
-    // Filling server information
-	servaddr.sin_family = AF_INET; //IPv4
-	servaddr.sin_addr.s_addr = INADDR_ANY;
-	servaddr.sin_port = htons(PORT);
-
-	//bind socket to the address
-	if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-		perror("[Error]: Fail to bind to address");
-		exit(1);
-	}
-
-	int n_heartbeat = 0;
-	//keep listen to request
-	while(true){
-		char received_info[BUFFER_SIZE] = {0}; 
-		int len, n; 
-    	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
-        //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
-        //        &len); 
-    	//received_info[n] = '\0'; 
-		//printf("\nThe order received is: %s\n", received_info);
-		//int nbr_id = stoi(received_info);
-		//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
-		string hello = (string) id;
-		sendto(server_fd, hello.c_str(), hello.length(),  
-        	MSG_CONFIRM, (const struct sockaddr *) &cliaddr, 
-            len); 
-    	printf("Heartbeat %d sent\n", n_heartbeat++);
-    	std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
-
-	}
+	return 0;
 }
 
 int monitor(string IP){ //UDP
-	int sockfd; 
-    struct sockaddr_in	servaddr; 
-  
-    // Creating socket file descriptor 
-    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
-        perror("socket creation failed"); 
-        exit(EXIT_FAILURE); 
-    } 
-  
-    memset(&servaddr, 0, sizeof(servaddr)); 
-      
-    // Filling server information 
-    servaddr.sin_family = AF_INET; 
-    servaddr.sin_port = htons(PORT); 
-    servaddr.sin_addr.s_addr = inet_addr(IP); 
-      
-    int n, len; 
-	while(true){
-		char buffer[BUFFER_SIZE] = {0}; 
-	    n = recvfrom(sockfd, (char *)buffer, BUFFER_SIZE,  
-	                MSG_WAITALL, (struct sockaddr *) &servaddr, 
-	                &len); 
-	    buffer[n] = '\0'; 
-		printf("\nThe order received is: %s\n", received_info);
-		int nbr_id = stoi(received_info);
-		neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
-	}  
-    close(sockfd); 
     return 0; 
 }
 
