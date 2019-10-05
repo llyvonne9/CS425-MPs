@@ -16,13 +16,14 @@ using namespace std;
 using namespace std::chrono;
 
 #define BUFFER_SIZE 10240
+#define PORT_HB 8082
 
 //Server parameters to assign and to print
 struct server_para {
     //char *addr;
     string addr = "127.0.0.1";
     string hostname = "local";
-    int port = 8080;
+    int port = PORT_HB;
     long check_time = 0;
     int status = 1;
 };
@@ -111,10 +112,90 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
 }
 
 int heartbeat(){	//UDP
+	int server_fd, new_server_fd;
+	struct sockaddr_in servaddr, cliaddr;
+	
+	int read_status;
+    int addrlen = sizeof(servaddr); 
+
+    //struct timeval tp;
+	//gettimeofday(&tp, NULL);
+	//neighbors[nbr_id].check_time = tp.tv_sec * 1000 + tp.tv_usec / 1000; //get millisecond
+
+	server_fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if(server_fd == 0) {
+		perror("[Error]: Fail to create socket");
+		exit(1);
+	}
+
+    memset(&servaddr, 0, sizeof(servaddr)); 
+    memset(&cliaddr, 0, sizeof(cliaddr)); 
+
+    // Filling server information
+	servaddr.sin_family = AF_INET; //IPv4
+	servaddr.sin_addr.s_addr = INADDR_ANY;
+	servaddr.sin_port = htons(PORT_HB);
+
+	//bind socket to the address
+	if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+		perror("[Error]: Fail to bind to address");
+		exit(1);
+	}
+
+	int n_heartbeat = 0;
+	//keep listen to request
+	while(true){
+		char received_info[BUFFER_SIZE] = {0}; 
+		int len, n; 
+    	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
+        //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
+        //        &len); 
+    	//received_info[n] = '\0'; 
+		//printf("\nThe order received is: %s\n", received_info);
+		//int nbr_id = stoi(received_info);
+		//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+		char* hello; sprintf(hello, "%d", id);
+		sendto(server_fd, (const char*) hello, strlen(hello),  
+        	MSG_CONFIRM, (const struct sockaddr *) &cliaddr, 
+            len); 
+    	printf("Heartbeat %d sent\n", n_heartbeat++);
+    	std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
+
+	}
 	return 0;
 }
 
-int monitor(string IP){ //UDP
+int monitor(string IP, int PORT){ //UDP
+	int sockfd; 
+    struct sockaddr_in	servaddr; 
+  
+    // Creating socket file descriptor 
+    if ( (sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ) { 
+        perror("socket creation failed"); 
+        exit(EXIT_FAILURE); 
+    } 
+  
+    memset(&servaddr, 0, sizeof(servaddr)); 
+      
+    // Filling server information 
+    servaddr.sin_family = AF_INET; 
+    servaddr.sin_port = htons(PORT); 
+    servaddr.sin_addr.s_addr = inet_addr(IP.c_str()); 
+      
+    int n, len; 
+	while(true){
+		char buffer[BUFFER_SIZE] = {0}; 
+	    n = recvfrom(sockfd, (char *)buffer, BUFFER_SIZE,  
+	                MSG_WAITALL, (struct sockaddr *) &servaddr, 
+	                (socklen_t*) &len); 
+	    buffer[n] = '\0'; 
+		printf("\nThe order received is: %s\n", buffer);
+		int nbr_id = stoi(buffer);
+		neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+	}  
+    close(sockfd); 
     return 0; 
 }
 
@@ -132,13 +213,13 @@ int init_para(int argc, char const *argv[]){
     	// atoi() would return 0, which is less helpful if it could be a valid value.
 		}
 	} else {
-		cout << "Need one parameter: id"
+		cout << "Need one parameter: id";
 		return -1;
 	}
 	return 0;
 }
 
-int main(int arc, char const *argv[]) {
+int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
 
@@ -178,7 +259,7 @@ int main(int arc, char const *argv[]) {
 	//Create a socket and listen to heartbeats from neighbors (UDP) by thread. Count timeout for each neighbor
     thread thread_monitors[num_server];
     for (int i=0;i<num_server;i++){ 
-		thread_monitors = thread(monitor, neighbors[i].addr);
+		thread_monitors[i] = thread(monitor, neighbors[i].addr, neighbors[i].port);
 	}
 
 	long cur_time = 0;
@@ -189,8 +270,10 @@ int main(int arc, char const *argv[]) {
 			if (cur_time - neighbors[i].check_time > wait_time){ 
 				if (neighbors[i].status == 1){
 					neighbors[i].status = 0;
-					string cmd = "LEAVE_"+id+"_"+i;
-				    send(sock, cmd.c_str(), cmd.length(), 0);
+					//string cmd = "LEAVE_"+id+"_"+i;
+					char *tmp;
+					sprintf(tmp,"LEAVE_%d_%d",id,i);
+				    send(sock, (const char *)tmp, strlen(tmp), 0);
 				    printf("cmd sent %s \n ", cmd.c_str());
 				}
 			} else{
