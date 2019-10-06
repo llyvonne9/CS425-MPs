@@ -118,7 +118,7 @@ void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sock
 	    } 
 	   
 	    serv_addr.sin_family = AF_INET; 
-	    serv_addr.sin_port = htons(NODEPORT+neighborIndex); 
+	    serv_addr.sin_port = htons(NODEPORT_BASE+neighborIndex); 
 
 
 
