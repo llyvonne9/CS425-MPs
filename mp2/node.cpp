@@ -352,7 +352,10 @@ int intro_update(int sock){ //deal with all messages received from introducer
 			}
 		}
 		if (strcmp(ptr, "UPDATE")==0){
-			neighbors[stoi(strtok(NULL, delim))].status = stoi(strtok(NULL, delim));
+			int nth = stoi(strtok(NULL, delim));
+			strtok(NULL, delim);
+			int status = stoi(strtok(NULL, delim));
+			neighbors[nth].status = status;
 		}
 	}
 	return 0;
