@@ -319,10 +319,13 @@ int test(){
 		printf("\nThe order received is: %s\n", received_info);
 		if (strcmp(received_info,"JOIN")==0){
 			join();
+			myinfo.status = 1;
 			msg = "OK";
 		}
 		if (strcmp(received_info,"LEAVE")==0){
 			leave();
+			myinfo.status = 1;
+			close(introducer.sock);
 			msg = "OK";
 		}
 		if (strcmp(received_info,"INFO")==0){
@@ -359,6 +362,7 @@ int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
 	neighbors = new server_para[num_server];
+	myinfo.status = 0; //until test says join
 
 	//Connect to Introducer
     //int sock;
@@ -402,36 +406,38 @@ int main(int argc, char const *argv[]) {
 	long cur_time = 0;
 	while(true){
 		sleep(heartbeat_time/1000);
-		bool is_changed = true;
-	    for (int i=0;i<NUM_NBR;i++){ 
-			cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			//cout<<cur_time<<"\n";
-			if (cur_time - neighbors[i].check_time > wait_time){ 
-				if (neighbors[i].status == 1){
-					neighbors[i].status = 0;
-					//string cmd = "LEAVE_"+id+"_"+i;
-					char *tmp;
-					sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
-				    send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
-				    printf("cmd sent %s \n ", cmd.c_str());
-				    is_changed = true;
-				}
-			} else{
-				if (neighbors[i].status == 0) {
-					neighbors[i].status = 1;
-					is_changed = true;
+		if (myinfo.status==1){
+			bool is_changed = true;
+		    for (int i=0;i<NUM_NBR;i++){ 
+				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+				//cout<<cur_time<<"\n";
+				if (cur_time - neighbors[i].check_time > wait_time){ 
+					if (neighbors[i].status == 1){
+						neighbors[i].status = 0;
+						//string cmd = "LEAVE_"+id+"_"+i;
+						char *tmp;
+						sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
+					    send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
+					    printf("cmd sent %s \n ", cmd.c_str());
+					    is_changed = true;
+					}
+				} else{
+					if (neighbors[i].status == 0) {
+						neighbors[i].status = 1;
+						is_changed = true;
+					}
 				}
 			}
+		    ofstream myfile;
+			myfile.open ("nbr_state.txt");
+			myfile<<"myinfo.id"<<"\n";
+		    for (int i=0;i<NUM_NBR;i++){ 
+		    	//fprintf(myfile, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
+				myfile << i <<" "<<neighbors[i].id<<" "<<neighbors[i].status<<"\n";
+			}
+			myfile.close();
 		}
-	    ofstream myfile;
-		myfile.open ("nbr_state.txt");
-		myfile<<"myinfo.id"<<"\n";
-	    for (int i=0;i<NUM_NBR;i++){ 
-	    	//fprintf(myfile, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
-			myfile << i <<" "<<neighbors[i].id<<" "<<neighbors[i].status<<"\n";
-		}
-		myfile.close();
 	}
-	
+	close(introducer.sock);
 	return 0;
 }
