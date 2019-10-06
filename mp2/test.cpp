@@ -68,7 +68,7 @@ int connect_by_host(int &sock, server_para &server, int socktype){
             printf("\nConnection Failed \n"); 
             return -1; 
         }
-    //}
+    //} 
     freeaddrinfo(addrs);
     return sock;
 }

@@ -311,7 +311,7 @@ int test(){
 		if(new_server_fd < 0) {
 			perror("[Error]: Fail to accept to incoming connections");
 			exit(1);
-		}
+		} 
 
 		//read the request
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
