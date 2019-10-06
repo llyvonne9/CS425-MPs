@@ -116,7 +116,7 @@ int init_para(int argc, char const *argv[]){
 
     node.addr = (string) argv[1];
     node.port = stoi(argv[2]);
-    cmd = (string) argv[3];
+    cmd = "TEST "+(string) argv[3];
 
     return 0;
 }
