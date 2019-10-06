@@ -16,8 +16,10 @@ using namespace std;
 using namespace std::chrono;
 
 #define BUFFER_SIZE 10240
+#define QUEUE_SIZE 10
 #define PORT_HB 8082
 #define PORT_TEST 8083
+#define NUM_NBR 4
 
 //Server parameters to assign and to print
 struct server_para {
@@ -26,7 +28,9 @@ struct server_para {
     string hostname = "local";
     int port = PORT_HB;
     long check_time = 0;
+    int id = -1;
     int status = 1;
+    int sock = -1;
 };
 
 int num_server = 0;
@@ -34,7 +38,7 @@ string cmd = "";
 struct server_para *serverlist;
 string log_name = "vm";
 
-int id = -1;
+struct server_para myinfo;
 struct server_para introducer;
 struct server_para *neighbors;
 int wait_time = 8000; //ms
@@ -146,23 +150,24 @@ int heartbeat(string IP){	//UDP send heartbeat to IP
 	int n_heartbeat = 0;
 	//keep listen to request
 	while(true){
-		char received_info[BUFFER_SIZE] = {0}; 
-		int n; socklen_t len = sizeof(servaddr);
-    	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
-        //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
-        //        &len); 
-    	//received_info[n] = '\0'; 
-		//printf("\nThe order received is: %s\n", received_info);
-		//int nbr_id = stoi(received_info);
-		//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		if (myinfo.status==1){
+			char received_info[BUFFER_SIZE] = {0}; 
+			int n; socklen_t len = sizeof(servaddr);
+	    	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
+	        //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
+	        //        &len); 
+	    	//received_info[n] = '\0'; 
+			//printf("\nThe order received is: %s\n", received_info);
+			//int nbr_id = stoi(received_info);
+			//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-		char* hello; sprintf(hello, "%d", id);
-		sendto(server_fd, (const char*) hello, strlen(hello),  
-        	MSG_CONFIRM, (const struct sockaddr *) &servaddr, 
-            len); 
-    	printf("Heartbeat %d sent\n", n_heartbeat++);
-    	std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
-
+			char* hello; sprintf(hello, "%d", myinfo.id);
+			sendto(server_fd, (const char*) hello, strlen(hello),  
+	        	MSG_CONFIRM, (const struct sockaddr *) &servaddr, 
+	            len); 
+	    	printf("Heartbeat %d sent\n", n_heartbeat++);
+	    }
+	    std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
 	}
 	return 0;
 }
@@ -199,9 +204,18 @@ int monitor(){ //UDP monitor heartbeat
 	                MSG_WAITALL, (struct sockaddr *) &servaddr, 
 	                &len); 
 	    buffer[n] = '\0'; 
-		printf("\nThe order received is: %s\n", buffer);
-		int nbr_id = stoi(buffer);
-		neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+	    if (myinfo.status == 1){	//update only when I'm alive
+			printf("\nThe order received is: %s\n", buffer);
+			int nbr_id = stoi(buffer);
+			for (int i=0; i++; i<NUM_NBR){	//use key or hash mapping in the future
+				if (neighbors[i].id==nbr_id){
+					neighbors[i].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+						std::chrono::system_clock::now().time_since_epoch()).count();
+				}
+				break;
+			}
+		}
 
 	}  
     close(sockfd); 
@@ -216,7 +230,7 @@ int init_para(int argc, char const *argv[]){
 	}
 	if (argc > 1){
 		try {
-    		id = std::stoi(argv[1]);
+    		myinfo.id = std::stoi(argv[1]);
 		} catch (std::exception const &e) {
     	// This could not be parsed into a number so an exception is thrown.
     	// atoi() would return 0, which is less helpful if it could be a valid value.
@@ -224,6 +238,99 @@ int init_para(int argc, char const *argv[]){
 	} else {
 		cout << "Need one parameter: id";
 		return -1;
+	}
+	return 0;
+}
+
+int join(){	//send JOIN to introducer, receie NEIGHBORS
+	int valread; 
+    char recv_info[BUFFER_SIZE] = {0}; 
+
+    string cmd = "JOIN_"+myinfo.id;
+    send(introducer.sock, cmd.c_str(), cmd.length(), 0);
+    printf("cmd sent %s \n ", cmd.c_str());
+
+    valread = read(introducer.sock, recv_info, BUFFER_SIZE);
+	printf("\nThe info received is: %s\n", recv_info); //neighbor list
+
+	char delim[] = " ";
+	char *ptr = strtok(recv_info, delim);
+	for(int i=0; i++; i<NUM_NBR){
+		//printf("'%s'\n", ptr); 
+		int nth = stoi(strtok(NULL, delim));
+		neighbors[nth].id = stoi(strtok(NULL, delim));
+		neighbors[nth].status = stoi(strtok(NULL, delim));
+		neighbors[nth].addr = (string) strtok(NULL, delim);
+	}
+	return 0;
+}
+
+int leave(){ //send leave to introducer
+	int valread; 
+    char recv_info[BUFFER_SIZE] = {0}; 
+
+    string cmd = "LEAVE_"+myinfo.id;
+    send(introducer.sock, cmd.c_str(), cmd.length(), 0);
+    printf("cmd sent %s \n ", cmd.c_str());
+    return 0;
+}
+
+int test(){
+	int server_fd;
+	struct sockaddr_in addr;
+	
+	string result;
+	int read_received_message;
+    int addrlen = sizeof(addr); 
+
+	server_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(server_fd == 0) {
+		perror("[Error]: Fail to create socket");
+		exit(1);
+	}
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = htons(PORT_TEST);
+
+	//bind socket to the address
+	if(bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("[Error]: Fail to bind to address");
+		exit(1);
+	}
+
+	//keep listen to request
+	while(true){
+		char received_info[BUFFER_SIZE] = {0}; 
+		if(listen(server_fd, QUEUE_SIZE) < 0) {
+			perror("[Error]: Fail to listen to incoming connections");
+			exit(1);
+		}
+		int new_server_fd = accept(server_fd, (struct sockaddr *)&addr, (socklen_t*)&addrlen);
+		if(new_server_fd < 0) {
+			perror("[Error]: Fail to accept to incoming connections");
+			exit(1);
+		}
+
+		//read the request
+		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
+		printf("\nThe order received is: %s\n", received_info);
+		if (strcmp(received_info,"JOIN")==0){
+			join();
+		}
+		if (strcmp(received_info,"LEAVE")==0){
+			leave();
+		}
+		if (strcmp(received_info,"INFO")==0){
+			//string msg = to_string(-1) + '\0';
+			string msg = "myinfo.id\n";
+		    for (int i=0;i<NUM_NBR;i++){ 
+				//sprintf(msg, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
+				msg += "neighbors[" +to_string(i)+ "],id=" +to_string(neighbors[i].id)+ ",status=" +to_string(neighbors[i].status);
+			}
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+		}
+		close(new_server_fd);
 	}
 	return 0;
 }
@@ -241,20 +348,21 @@ int intro_update(int sock){
 			neighbors[stoi(strtok(NULL, delim))].status = stoi(strtok(NULL, delim));
 		}
 	}
+	return 0;
 }
 
 int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
 
-	//Connect to Introducer, send JOIN, receie NEIGHBORS...
-    int sock;
+	//Connect to Introducer
+    //int sock;
     int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
     struct sockaddr_in serv_addr; 	
 	init_socket_para(serv_addr, introducer.addr.c_str(), introducer.port);
-    if (connect_socket(sock, serv_addr)<0){introducer.status = -1; return -1;}
+    if (connect_socket(introducer.sock, serv_addr)<0){introducer.status = -1; return -1;}
     cout<<"introducer= "<<introducer.addr<<":"<<introducer.port<<"\n";
     
     //*** For texture Hostname
@@ -264,20 +372,13 @@ int main(int argc, char const *argv[]) {
     //}
     //cout<<"introducer"<<<<": "<<introducer.hostname<<":"<introducer.port<<"\n";
 
-    string cmd = "JOIN_"+id;
-    send(sock, cmd.c_str(), cmd.length(), 0);
-    printf("cmd sent %s \n ", cmd.c_str());
 
-    valread = read(sock, recv_info, BUFFER_SIZE);
-	printf("\nThe info received is: %s\n", recv_info); //neighbor list
-
-	char delim[] = " ";
-	char *ptr = strtok(recv_info, delim); ptr = strtok(NULL, delim);
-	for(int i=0; i++; i<4){printf("'%s'\n", ptr); neighbors[i].addr = (string) ptr; ptr = strtok(NULL, delim);}
-	for(int i=0; i++; i<4){printf("'%s'\n", ptr); neighbors[i].status = stoi(ptr); ptr = strtok(NULL, delim);}
+	//According the test to change myinfo status
+	thread thread_test;
+	thread_test = thread(test);
 
 	//Send heartbeat to neighbors (UDP)
-	thread thread_HBs[4];
+	thread thread_HBs[NUM_NBR];
     for (int i=0;i<num_server;i++){ 
 		thread_HBs[i] = thread(heartbeat, neighbors[i].addr);
 	}
@@ -287,21 +388,21 @@ int main(int argc, char const *argv[]) {
 	thread_monitor = thread(monitor);
 
 	thread thread_intro_update;
-	thread_intro_update = thread(intro_update, sock);
+	thread_intro_update = thread(intro_update, introducer.sock);
 
 	long cur_time = 0;
 	while(true){
 		sleep(heartbeat_time/1000);
 		bool is_changed = false;
-	    for (int i=0;i<4;i++){ 
+	    for (int i=0;i<NUM_NBR;i++){ 
 			cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			if (cur_time - neighbors[i].check_time > wait_time){ 
 				if (neighbors[i].status == 1){
 					neighbors[i].status = 0;
 					//string cmd = "LEAVE_"+id+"_"+i;
 					char *tmp;
-					sprintf(tmp,"FAIL_%d_%d",id,i);
-				    send(sock, (const char *)tmp, strlen(tmp), 0);
+					sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
+				    send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
 				    printf("cmd sent %s \n ", cmd.c_str());
 				    is_changed = true;
 				}
@@ -314,8 +415,10 @@ int main(int argc, char const *argv[]) {
 		}
 	    ofstream myfile;
 		myfile.open ("nbr_state.txt");
-	    for (int i=0;i<4;i++){ 
-			myfile << i <<" "<<neighbors[i].addr<<" "<<neighbors[i].status<<"\n";
+		myfile<<"myinfo.id"<<"\n";
+	    for (int i=0;i<NUM_NBR;i++){ 
+	    	//fprintf(myfile, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
+			myfile << i <<" "<<neighbors[i].id<<" "<<neighbors[i].status<<"\n";
 		}
 		myfile.close();
 	}
