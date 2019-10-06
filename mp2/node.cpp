@@ -334,28 +334,30 @@ int intro_update(int sock){ //deal with all messages received from introducer
     int valread; 
 
 	while (true){
-    	char recv_info[BUFFER_SIZE] = {0}; 
-		valread = read(sock, recv_info, BUFFER_SIZE);
-    	recv_info[valread] = '\0';
-		printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
-		
-		char delim[] = " ";
-		char *ptr = strtok(recv_info, delim); 
+		if (myinfo.status == 1){
+	    	char recv_info[BUFFER_SIZE] = {0}; 
+			valread = read(sock, recv_info, BUFFER_SIZE);
+	    	recv_info[valread] = '\0';
+			printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+			
+			char delim[] = " ";
+			char *ptr = strtok(recv_info, delim); 
 
-		if (strcmp(ptr, "NEIGHBORS")==0){
-			for(int i=0; i++; i<NUM_NBR){
-				//printf("'%s'\n", ptr); 
-				int nth = stoi(strtok(NULL, delim));
-				neighbors[nth].id = stoi(strtok(NULL, delim));
-				neighbors[nth].status = stoi(strtok(NULL, delim));
-				neighbors[nth].addr = (string) strtok(NULL, delim);
+			if (strcmp(ptr, "NEIGHBORS")==0){
+				for(int i=0; i++; i<NUM_NBR){
+					//printf("'%s'\n", ptr); 
+					int nth = stoi(strtok(NULL, delim));
+					neighbors[nth].id = stoi(strtok(NULL, delim));
+					neighbors[nth].status = stoi(strtok(NULL, delim));
+					neighbors[nth].addr = (string) strtok(NULL, delim);
+				}
 			}
-		}
-		if (strcmp(ptr, "UPDATE")==0){
-			int nth = stoi(strtok(NULL, delim));
-			strtok(NULL, delim);
-			int status = stoi(strtok(NULL, delim));
-			neighbors[nth].status = status;
+			if (strcmp(ptr, "UPDATE")==0){
+				int nth = stoi(strtok(NULL, delim));
+				strtok(NULL, delim);
+				int status = stoi(strtok(NULL, delim));
+				neighbors[nth].status = status;
+			}
 		}
 	}
 	return 0;
