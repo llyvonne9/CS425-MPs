@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <string.h>
 #include <netinet/in.h> 
+#include <arpa/inet.h>
 #include <unistd.h> 
 #include <fstream>
 #include <algorithm>
@@ -11,6 +12,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+
 using namespace std;
 
 #define PORT 8080
@@ -52,7 +54,7 @@ map<int, string> getIPs (string delimiter) {
 		memset(szTest, 0, sizeof(szTest));
 		fgets(szTest, sizeof(szTest) - 1, fp); // 包含了换行符
 		vector<string> ips = split(szTest, " ");
-		if(i < 10) map.insert(std::make_pair(atoi(ips[0]), ips[1]));
+		if(i < 10) map.insert(std::make_pair(atoi(ips[0].c_str()), ips[1]));
 		i++;
 	}
  
@@ -61,20 +63,12 @@ map<int, string> getIPs (string delimiter) {
 	return map;
 }
 
-void introduceNeighbors(int type, int idx, map<int, string> ips, int new_server_fd) {
-	int sock = 0, valread; 
-    struct sockaddr_in serv_addr; 
+void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> states, int sock, struct sockaddr_in &serv_addr) {
+
     char buffer[1024] = {0}; 
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
-    { 
-        printf("\n Socket creation error \n"); 
-    } 
-   
-    serv_addr.sin_family = AF_INET; 
-    serv_addr.sin_port = htons(PORT); 
-       
-    // Convert IPv4 and IPv6 addresses from text to binary form 
-    if(inet_pton(AF_INET, ips[idx], &serv_addr.sin_addr)<=0)  
+    int valread;
+    printf("The new join node's ip : %s\n", (ips.find(idx)->second).c_str());
+    if(inet_pton(AF_INET, (ips.find(idx)->second).c_str(), &serv_addr.sin_addr)<=0)  
     { 
         printf("\nInvalid address/ Address not supported \n"); 
     } 
@@ -87,17 +81,18 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, int new_server_
 	string msg = "NEIGHBORS ";
 	for(int i = 0; i < 4; i++) {
 		int neighborIndex = (i + idx + 1) % 10;
-		sting ip = ips[neighborIndex];
-		msg += neighborIndex + " " + states + " " + ip + " ";
-	}
+		if(neighborIndex == 0) neighborIndex = 10;
+		string ip = ips.find(neighborIndex)->second;
 
+		msg += to_string(neighborIndex) + " " + to_string(states.find(neighborIndex)->second) + " " + ip + " ";
+	}
+	printf("Sent %s\n", msg.c_str());
 	send(sock, msg.c_str(), msg.length(), 0);
 	printf("NEIGHBORS info sent to new join node. \n"); 
-    valread = read( sock , buffer, 1024); 
 	
 }
 
-void updateStatus(int type, int idx, int new_server_fd) {
+void updateStatus(int type, int idx, map<int, string> ips) {
 	int sock = 0, valread; 
     struct sockaddr_in serv_addr; 
     char buffer[1024] = {0}; 
@@ -112,7 +107,7 @@ void updateStatus(int type, int idx, int new_server_fd) {
 
 	for(int i = 0; i < 4; i++) {
 		int neighborIndex = (i + idx + 1) % 10;
-		if(inet_pton(AF_INET, ips[neighborIndex], &serv_addr.sin_addr)<=0) { 
+		if(inet_pton(AF_INET, (ips.find(neighborIndex) -> second).c_str(), &serv_addr.sin_addr)<=0) { 
 	        printf("\nInvalid address/ Address not supported \n"); 
 	    } 
 	   
@@ -150,8 +145,13 @@ int main(int arc, char const *argv[]) {
 		perror("[Error]: Fail to bind to address");
 		exit(1);
 	}
+
+	for(int i = 1; i < 11; i++) {
+		states.insert(std::make_pair(i, LEAVE));
+	}
+
 	string d = " ";
-    getIP(d);
+    getIPs(d);
 	while(true){
 		char received_info[BUFFER_SIZE] = {0}; 
 		if(listen(server_fd, QUEUE_SIZE) < 0) {
@@ -172,7 +172,7 @@ int main(int arc, char const *argv[]) {
 
 	    int type = 0;
 	    string finder = "";
-	    int idx = atoi(segment[1]);
+	    int idx = atoi(segment[1].c_str());
 	    if(strcmp(segment[0].c_str(), "FAIL") == 0) {
 	    	type = FAIL;
 	    	finder = segment[2];
@@ -180,16 +180,23 @@ int main(int arc, char const *argv[]) {
 	    	type = LEAVE;
 	    } else {
 	    	type = JOIN;
-	    	introduceNeighbors(type, idx, ips, new_server_fd);
+	    	map<int, int>::iterator iter;
+		    iter = states.begin();
+		    while(iter != states.end()) {
+		        cout << iter->first << " : " << iter->second << endl;
+		        iter++;
+		    }
+	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr);
 	    }
 
-	    updateStatus(type, idx, new_server_fd);
-	    states.insert(std::make_pair(idx, type));
+	    // updateStatus(type, idx, new_server_fd);
+	    // states.insert(std::make_pair(idx, type));
+	    states.find(idx)->second = type;
 	    
 
 	    ofstream myfile;
     	myfile.open("log.txt", ios::app);
-    	string res = "machine " + idx + " " + type + " at ";
+    	string res = "machine " + to_string(idx) + " " + to_string(type) + " at ";
     	auto time = std::chrono::system_clock::now();
     	time_t end_time = std::chrono::system_clock::to_time_t(time);
     	res += ctime(&end_time);
