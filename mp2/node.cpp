@@ -482,23 +482,25 @@ int main(int argc, char const *argv[]) {
 		    for (int i=0;i<NUM_NBR;i++){ 
 				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 				//cout<<cur_time<<"\n";
-				if (cur_time - neighbors[i].check_time > wait_time){ 
-					if (neighbors[i].status == 1){
-						neighbors[i].status = -1;
-						//string cmd = "LEAVE_"+id+"_"+i;
-						char tmp[32] = {};
-						sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
-					    //send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
-						string msg = (string) tmp;
-						send_msg(msg, introducer);
-					    printf("cmd sent %s \n ", cmd.c_str());
-					    is_changed = true;
+				if (neighbors[i].id != myinfo.id){
+					if (cur_time - neighbors[i].check_time > wait_time){ 
+						if (neighbors[i].status == 1){
+							neighbors[i].status = -1;
+							//string cmd = "LEAVE_"+id+"_"+i;
+							char tmp[32] = {};
+							sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
+						    //send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
+							string msg = (string) tmp;
+							send_msg(msg, introducer);
+						    printf("cmd sent %s \n ", cmd.c_str());
+						    is_changed = true;
+						}
+					} else{
+						if (neighbors[i].status != 1) {
+							neighbors[i].status = 1;
+							is_changed = true;
+						}
 					}
-				//} else{
-				//	if (neighbors[i].status != 1) {
-				//		neighbors[i].status = 1;
-				//		is_changed = true;
-				//	}
 				}
 			}
 		    ofstream myfile;
