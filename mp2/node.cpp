@@ -494,11 +494,11 @@ int main(int argc, char const *argv[]) {
 					    printf("cmd sent %s \n ", cmd.c_str());
 					    is_changed = true;
 					}
-				} else{
-					if (neighbors[i].status != 1) {
-						neighbors[i].status = 1;
-						is_changed = true;
-					}
+				//} else{
+				//	if (neighbors[i].status != 1) {
+				//		neighbors[i].status = 1;
+				//		is_changed = true;
+				//	}
 				}
 			}
 		    ofstream myfile;
