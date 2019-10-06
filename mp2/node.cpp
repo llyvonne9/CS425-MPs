@@ -30,7 +30,7 @@ struct server_para {
     int port = PORT_HB;
     long check_time = 0;
     int id = -1;
-    int status = 1;
+    int status = 0;
     int sock = -1;
 };
 
