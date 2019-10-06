@@ -414,7 +414,7 @@ int intro_update(int sock){ //deal with all messages received from introducer
 					//}
 					neighbors[nth].status = status;
 					neighbors[nth].addr = (string) strtok(NULL, delim);
-					cout<<neighbors[nth].addr<<"\n";
+					cout<<nth<<" "<<status<<" "<<neighbors[nth].addr<<"\n";
 				}
 			}
 			if (strcmp(ptr, "UPDATE")==0){
