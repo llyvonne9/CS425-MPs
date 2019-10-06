@@ -315,8 +315,10 @@ int join(){	//send JOIN to introducer
 			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
 			neighbors[nth].status = stoi(nbrs[NUM_NBR * i + 3]);
 			neighbors[nth].addr = nbrs[NUM_NBR * i + 4];
-			neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+			if (neighbors[nth].status){
+				neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()).count();
+			}
 			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
 	}
 
