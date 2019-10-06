@@ -176,12 +176,16 @@ int main(int arc, char const *argv[]) {
 	    int type = 0;
 	    string finder = "";
 	    int idx = atoi(segment[1].c_str());
-	    if(strcmp(segment[0].c_str(), "FAIL") == 0) {
+	    if(strcmp(segment[0].c_str(), "FAIL") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = FAIL;
 	    	finder = segment[2];
-	    } else if(strcmp(segment[0].c_str(), "LEAVE") == 0) {
+	    	states.find(idx)->second = type;
+	    	updateStatus(type, idx, ips);
+	    } else if(strcmp(segment[0].c_str(), "LEAVE") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = LEAVE;
-	    } else if(strcmp(segment[0].c_str(), "JOIN") == 0) {
+	    	states.find(idx)->second = type;
+	    	updateStatus(type, idx, ips);
+	    } else if(strcmp(segment[0].c_str(), "JOIN") == 0 && ((states.find(idx) -> second) == FAIL || (states.find(idx) -> second) == LEAVE)) {
 	    	type = JOIN;
 	    	map<int, int>::iterator iter;
 		    iter = states.begin();
@@ -189,6 +193,7 @@ int main(int arc, char const *argv[]) {
 		        cout << iter->first << " : " << iter->second << endl;
 		        iter++;
 		    }
+		    states.find(idx)->second = type;
 	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr);
 	    } else {
 	    	printf("The msg is Invalid");
@@ -196,7 +201,7 @@ int main(int arc, char const *argv[]) {
 
 	    // updateStatus(type, idx, new_server_fd);
 	    // states.insert(std::make_pair(idx, type));
-	    states.find(idx)->second = type;
+	    
 	    
 
 	    ofstream myfile;
