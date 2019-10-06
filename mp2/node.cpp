@@ -19,8 +19,8 @@ using namespace std::chrono;
 #define BUFFER_SIZE 10240
 #define QUEUE_SIZE 10
 #define PORT_INTRO 8081
-#define PORT_HB 8082
-#define PORT_TEST 8083
+#define PORT_HB 8100
+#define PORT_TEST 8200
 #define NUM_NBR 4
 
 //Server parameters to assign and to print
@@ -155,8 +155,6 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 
     // Filling server information
 	servaddr.sin_family = AF_INET; //IPv4
-	//servaddr.sin_addr.s_addr = inet_addr(neighbors[idx].addr.c_str()); 
-	servaddr.sin_port = htons(PORT_HB);
 
 	//bind socket to the address
 	//if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
@@ -172,6 +170,7 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 		if (myinfo.status== 1 && neighbors[idx].status == 1){
 			
 			servaddr.sin_addr.s_addr = inet_addr(neighbors[idx].addr.c_str()); 
+			servaddr.sin_port = htons(PORT_HB+neighbors[idx].id);
 
 			char received_info[BUFFER_SIZE] = {0}; 
 			int n; socklen_t len = sizeof(servaddr);
@@ -209,7 +208,7 @@ int monitor(){ //UDP monitor heartbeat
       
     // Filling server information 
     servaddr.sin_family = AF_INET; 
-    servaddr.sin_port = htons(PORT_HB); 
+    servaddr.sin_port = htons(PORT_HB+myinfo.id); 
     servaddr.sin_addr.s_addr = INADDR_ANY;
       
     // Bind the socket with the server address 
@@ -320,6 +319,7 @@ int join(){	//send JOIN to introducer
 			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
 			neighbors[nth].status = stoi(nbrs[NUM_NBR * i + 3]);
 			neighbors[nth].addr = nbrs[NUM_NBR * i + 4];
+			neighbors[nth].port = PORT_HB+neighbors[nth].id;
 			
 			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
 	}
@@ -374,7 +374,7 @@ int test(){
 
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(PORT_TEST);
+	addr.sin_port = htons(PORT_TEST+myinfo.id);
 
 	//bind socket to the address
 	if(::bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
