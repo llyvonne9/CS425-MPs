@@ -168,7 +168,8 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 	//keep listen to request
 	while(true){
 		cout << neighbors[idx].addr.c_str() << "!!!!!!";	
-		if (myinfo.status== 1 && neighbors[idx].status == 1 && strcmp(neighbors[idx].addr.c_str(), "127.0.0.1") == 0 ){
+		//if (myinfo.status== 1 && neighbors[idx].status == 1 && strcmp(neighbors[idx].addr.c_str(), "127.0.0.1") == 0 ){
+		if (myinfo.status== 1 && neighbors[idx].status == 1){
 			
 			servaddr.sin_addr.s_addr = inet_addr(neighbors[idx].addr.c_str()); 
 
@@ -182,8 +183,9 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 			//int nbr_id = stoi(received_info);
 			//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-			char* hello; sprintf(hello, "%d", myinfo.id);
-			sendto(server_fd, (const char*) hello, strlen(hello),  
+			//char* hello; sprintf(hello, "%d", myinfo.id);
+			string hello = to_string(myinfo.id);
+			sendto(server_fd, hello.c_str(), hello.length(),  
 	        	0, (const struct sockaddr *) &servaddr, 
 	            len); 
 	    	printf("Heartbeat %d sent\n", n_heartbeat++);
