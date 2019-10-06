@@ -414,6 +414,7 @@ int main(int argc, char const *argv[]) {
 		sleep(heartbeat_time/1000);
 		if (myinfo.status==1){
 			try{
+
 			bool is_changed = true;
 		    for (int i=0;i<NUM_NBR;i++){ 
 				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -443,13 +444,14 @@ int main(int argc, char const *argv[]) {
 				myfile << i <<" "<<neighbors[i].id<<" "<<neighbors[i].status<<"\n";
 			}
 			myfile.close();
+
+			}catch (...){
+	            //close(introducer.sock);
+	            printf("something wrong");
+	            myinfo.status=0;
+	            throw;
+	        }
 		}
-		}catch (...){
-            //close(introducer.sock);
-            printf("something wrong")
-            myinfo.status=0;
-            throw;
-        }
 	}
 	close(introducer.sock);
 	return 0;
