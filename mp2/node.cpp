@@ -243,7 +243,7 @@ int init_para(int argc, char const *argv[]){
 	return 0;
 }
 
-int join(){	//send JOIN to introducer, receie NEIGHBORS
+int join(){	//send JOIN to introducer
 	int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
@@ -251,24 +251,6 @@ int join(){	//send JOIN to introducer, receie NEIGHBORS
     send(introducer.sock, cmd.c_str(), cmd.length(), 0);
     printf("cmd sent %s \n ", cmd.c_str());
 
-    valread = read(introducer.sock, recv_info, BUFFER_SIZE);
-    recv_info[valread] = '\0';
-	printf("\nThe info received is: %s\n", recv_info); //neighbor list
-
-	try{
-		char delim[] = " ";
-		char *ptr = strtok(recv_info, delim);
-		for(int i=0; i++; i<NUM_NBR){
-			//printf("'%s'\n", ptr); 
-			int nth = stoi(strtok(NULL, delim));
-			neighbors[nth].id = stoi(strtok(NULL, delim));
-			neighbors[nth].status = stoi(strtok(NULL, delim));
-			neighbors[nth].addr = (string) strtok(NULL, delim);
-		}
-	} catch (...){
-        cout<<"recv_info format is incorrect\n";
-        throw;
-    }
 	return 0;
 }
 
@@ -348,17 +330,34 @@ int test(){
 	return 0;
 }
 
-int intro_update(int sock){
+int intro_update(int sock){ //deal with all messages received from introducer
     int valread; 
 
 	while (true){
-    	char recv_info[BUFFER_SIZE] = {0}; 
-		valread = read(sock, recv_info, BUFFER_SIZE);
-		printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
-		char delim[] = " ";
-		char *ptr = strtok(recv_info, delim); 
-		if (strcmp(ptr, "UPDATE")==0){
-			neighbors[stoi(strtok(NULL, delim))].status = stoi(strtok(NULL, delim));
+		if (myinfo.status == 1){
+	    	char recv_info[BUFFER_SIZE] = {0}; 
+			valread = read(sock, recv_info, BUFFER_SIZE);
+	    	recv_info[valread] = '\0';
+			printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+			
+			char delim[] = " ";
+			char *ptr = strtok(recv_info, delim); 
+
+			if (strcmp(ptr, "NEIGHBORS")==0){
+				for(int i=0; i++; i<NUM_NBR){
+					//printf("'%s'\n", ptr); 
+					int nth = stoi(strtok(NULL, delim));
+					neighbors[nth].id = stoi(strtok(NULL, delim));
+					neighbors[nth].status = stoi(strtok(NULL, delim));
+					neighbors[nth].addr = (string) strtok(NULL, delim);
+				}
+			}
+			if (strcmp(ptr, "UPDATE")==0){
+				int nth = stoi(strtok(NULL, delim));
+				strtok(NULL, delim);
+				int status = stoi(strtok(NULL, delim));
+				neighbors[nth].status = status;
+			}
 		}
 	}
 	return 0;
@@ -368,7 +367,7 @@ int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
 	neighbors = new server_para[num_server];
-	myinfo.status = 0; //until test says join
+	myinfo.status = 0; //status = leave until test says join
 
 	//Connect to Introducer
     //int sock;
@@ -419,7 +418,7 @@ int main(int argc, char const *argv[]) {
 				//cout<<cur_time<<"\n";
 				if (cur_time - neighbors[i].check_time > wait_time){ 
 					if (neighbors[i].status == 1){
-						neighbors[i].status = 0;
+						neighbors[i].status = -1;
 						//string cmd = "LEAVE_"+id+"_"+i;
 						char tmp[32] = {};
 						sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
@@ -428,7 +427,7 @@ int main(int argc, char const *argv[]) {
 					    is_changed = true;
 					}
 				} else{
-					if (neighbors[i].status == 0) {
+					if (neighbors[i].status != 1) {
 						neighbors[i].status = 1;
 						is_changed = true;
 					}
