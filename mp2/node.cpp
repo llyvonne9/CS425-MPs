@@ -252,6 +252,7 @@ int join(){	//send JOIN to introducer, receie NEIGHBORS
     printf("cmd sent %s \n ", cmd.c_str());
 
     valread = read(introducer.sock, recv_info, BUFFER_SIZE);
+    recv_info[valread] = '\0';
 	printf("\nThe info received is: %s\n", recv_info); //neighbor list
 
 	char delim[] = " ";
@@ -412,6 +413,7 @@ int main(int argc, char const *argv[]) {
 	while(true){
 		sleep(heartbeat_time/1000);
 		if (myinfo.status==1){
+			try{
 			bool is_changed = true;
 		    for (int i=0;i<NUM_NBR;i++){ 
 				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -442,6 +444,12 @@ int main(int argc, char const *argv[]) {
 			}
 			myfile.close();
 		}
+		}catch (...){
+            //close(introducer.sock);
+            printf("something wrong")
+            myinfo.status=0;
+            throw;
+        }
 	}
 	close(introducer.sock);
 	return 0;
