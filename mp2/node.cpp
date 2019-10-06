@@ -247,21 +247,27 @@ int join(){	//send JOIN to introducer, receie NEIGHBORS
 	int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
-    string cmd = "JOIN_"+myinfo.id;
+    string cmd = "JOIN_"+to_string(myinfo.id);
     send(introducer.sock, cmd.c_str(), cmd.length(), 0);
     printf("cmd sent %s \n ", cmd.c_str());
 
     valread = read(introducer.sock, recv_info, BUFFER_SIZE);
+    recv_info[valread] = '\0';
 	printf("\nThe info received is: %s\n", recv_info); //neighbor list
 
 	char delim[] = " ";
 	char *ptr = strtok(recv_info, delim);
 	for(int i=0; i++; i<NUM_NBR){
 		//printf("'%s'\n", ptr); 
-		int nth = stoi(strtok(NULL, delim));
-		neighbors[nth].id = stoi(strtok(NULL, delim));
-		neighbors[nth].status = stoi(strtok(NULL, delim));
-		neighbors[nth].addr = (string) strtok(NULL, delim);
+		try{
+			int nth = stoi(strtok(NULL, delim));
+			neighbors[nth].id = stoi(strtok(NULL, delim));
+			neighbors[nth].status = stoi(strtok(NULL, delim));
+			neighbors[nth].addr = (string) strtok(NULL, delim);
+        } catch (...){
+            cout<<"recv_info format is incorrect\n";
+            throw;
+        }
 	}
 	return 0;
 }
@@ -270,7 +276,7 @@ int leave(){ //send leave to introducer
 	int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
-    string cmd = "LEAVE_"+myinfo.id;
+    string cmd = "LEAVE_"+to_string(myinfo.id);
     send(introducer.sock, cmd.c_str(), cmd.length(), 0);
     printf("cmd sent %s \n ", cmd.c_str());
     return 0;
@@ -324,7 +330,7 @@ int test(){
 		}
 		if (strcmp(received_info,"LEAVE")==0){
 			leave();
-			myinfo.status = 1;
+			myinfo.status = 0;
 			close(introducer.sock);
 			msg = "OK";
 		}
@@ -399,14 +405,16 @@ int main(int argc, char const *argv[]) {
 	thread_monitor = thread(monitor);
 	cout<<"fine3\n";
 
-	thread thread_intro_update;
-	thread_intro_update = thread(intro_update, introducer.sock);
-	cout<<"fine4\n";
+	//thread thread_intro_update;
+	//thread_intro_update = thread(intro_update, introducer.sock);
+	//cout<<"fine4\n";
 
 	long cur_time = 0;
 	while(true){
 		sleep(heartbeat_time/1000);
 		if (myinfo.status==1){
+			try{
+
 			bool is_changed = true;
 		    for (int i=0;i<NUM_NBR;i++){ 
 				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
@@ -436,6 +444,13 @@ int main(int argc, char const *argv[]) {
 				myfile << i <<" "<<neighbors[i].id<<" "<<neighbors[i].status<<"\n";
 			}
 			myfile.close();
+
+			}catch (...){
+	            //close(introducer.sock);
+	            printf("something wrong");
+	            myinfo.status=0;
+	            throw;
+	        }
 		}
 	}
 	close(introducer.sock);
