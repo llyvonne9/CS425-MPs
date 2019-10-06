@@ -399,9 +399,9 @@ int main(int argc, char const *argv[]) {
 	thread_monitor = thread(monitor);
 	cout<<"fine3\n";
 
-	thread thread_intro_update;
-	thread_intro_update = thread(intro_update, introducer.sock);
-	cout<<"fine4\n";
+	//thread thread_intro_update;
+	//thread_intro_update = thread(intro_update, introducer.sock);
+	//cout<<"fine4\n";
 
 	long cur_time = 0;
 	while(true){
