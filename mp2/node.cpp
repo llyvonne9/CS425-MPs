@@ -408,12 +408,13 @@ int intro_update(int sock){ //deal with all messages received from introducer
 					int nth = stoi(strtok(NULL, delim));
 					neighbors[nth].id = stoi(strtok(NULL, delim));
 					int status = stoi(strtok(NULL, delim));
-					if (status==1 && neighbors[nth].status!=1){
-						neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+					//if (status==1 && neighbors[nth].status!=1){
+					neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 							std::chrono::system_clock::now().time_since_epoch()).count();
-					}
+					//}
 					neighbors[nth].status = status;
 					neighbors[nth].addr = (string) strtok(NULL, delim);
+					cout<<neighbors[nth].addr<<"\n";
 				}
 			}
 			if (strcmp(ptr, "UPDATE")==0){
