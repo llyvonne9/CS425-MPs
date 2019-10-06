@@ -247,7 +247,7 @@ int join(){	//send JOIN to introducer, receie NEIGHBORS
 	int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
-    string cmd = "JOIN_"+myinfo.id;
+    string cmd = "JOIN_"+to_string(myinfo.id);
     send(introducer.sock, cmd.c_str(), cmd.length(), 0);
     printf("cmd sent %s \n ", cmd.c_str());
 
