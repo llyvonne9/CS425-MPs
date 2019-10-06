@@ -180,7 +180,7 @@ int main(int arc, char const *argv[]) {
 	    	finder = segment[2];
 	    } else if(strcmp(segment[0].c_str(), "LEAVE") == 0) {
 	    	type = LEAVE;
-	    } else {
+	    } else if(strcmp(segment[0].c_str(), "JOIN") == 0) {
 	    	type = JOIN;
 	    	map<int, int>::iterator iter;
 		    iter = states.begin();
@@ -189,6 +189,8 @@ int main(int arc, char const *argv[]) {
 		        iter++;
 		    }
 	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr);
+	    } else {
+	    	printf("The msg is Invalid");
 	    }
 
 	    // updateStatus(type, idx, new_server_fd);
