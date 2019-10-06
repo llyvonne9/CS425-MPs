@@ -85,7 +85,7 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
 		if(neighborIndex == 0) neighborIndex = 10;
 		string ip = ips.find(neighborIndex)->second;
 
-		msg += to_string(neighborIndex) + " " + to_string(states.find(neighborIndex)->second) + " " + ip + " ";
+		msg += to_string(i) + " " + to_string(neighborIndex) + " " + to_string(states.find(neighborIndex)->second) + " " + ip + " ";
 	}
 	printf("Sent %s\n", msg.c_str());
 	send(sock, msg.c_str(), msg.length(), 0);
@@ -93,31 +93,21 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
 	
 }
 
-void updateStatus(int type, int idx, map<int, string> ips) {
-	int sock = 0, valread; 
-    struct sockaddr_in serv_addr; 
-    char buffer[1024] = {0}; 
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
-    { 
-        printf("\n Socket creation error \n"); 
-    } 
-   
-    serv_addr.sin_family = AF_INET; 
-    serv_addr.sin_port = htons(PORT); 
-
+void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sockaddr_in &serv_addr) {
+	int valread; 
 
 	for(int i = 0; i < 4; i++) {
 		int neighborIndex = (i + idx + 1) % 10;
 		if(neighborIndex == 0) neighborIndex = 10;
-		if(inet_pton(AF_INET, (ips.find(neighborIndex) -> second).c_str(), &serv_addr.sin_addr)<=0) { 
-	        printf("\nInvalid address/ Address not supported \n"); 
-	    } 
+		// if(inet_pton(AF_INET, (ips.find(neighborIndex) -> second).c_str(), &serv_addr.sin_addr)<=0) { 
+	 //        printf("\nInvalid address/ Address not supported \n"); 
+	 //    } 
 	   
-	    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) { 
-	        printf("\nConnection Failed \n"); 
-	    }  
+	 //    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) { 
+	 //        printf("\nConnection Failed \n"); 
+	 //    }  
 		string msg = "UPDATE " + to_string(i + 1) + " " + to_string(neighborIndex) + " " + to_string(type);
-		send(sock, msg.c_str(), msg.length(), 0);
+		// send(sock, msg.c_str(), msg.length(), 0);
 		printf("Send %s msg %s\n", to_string(neighborIndex).c_str(), msg.c_str());
 	}
 }
@@ -175,33 +165,35 @@ int main(int arc, char const *argv[]) {
 
 	    int type = 0;
 	    string finder = "";
+	    printf(segment[0].c_str() + "\n");
 	    int idx = atoi(segment[1].c_str());
 	    if(strcmp(segment[0].c_str(), "FAIL") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = FAIL;
 	    	finder = segment[2];
 	    	states.find(idx)->second = type;
-	    	updateStatus(type, idx, ips);
+	    	// updateStatus(type, idx, ips, new_server_fd, addr);
 	    } else if(strcmp(segment[0].c_str(), "LEAVE") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = LEAVE;
 	    	states.find(idx)->second = type;
-	    	updateStatus(type, idx, ips);
+	    	// updateStatus(type, idx, ips, new_server_fd, addr);
 	    } else if(strcmp(segment[0].c_str(), "JOIN") == 0 && ((states.find(idx) -> second) == FAIL || (states.find(idx) -> second) == LEAVE)) {
 	    	type = JOIN;
-	    	map<int, int>::iterator iter;
-		    iter = states.begin();
-		    while(iter != states.end()) {
-		        cout << iter->first << " : " << iter->second << endl;
-		        iter++;
-		    }
+	    	
 		    states.find(idx)->second = type;
 	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr);
+	    	// updateStatus(type, idx, ips, new_server_fd, addr);
 	    } else {
 	    	printf("The msg is Invalid");
 	    }
 
 	    // updateStatus(type, idx, new_server_fd);
 	    // states.insert(std::make_pair(idx, type));
-	    
+	    map<int, int>::iterator iter;
+		iter = states.begin();
+		while(iter != states.end()) {
+		    cout << iter->first << " : " << iter->second << endl;
+		    iter++;
+		}
 	    
 
 	    ofstream myfile;
@@ -212,7 +204,7 @@ int main(int arc, char const *argv[]) {
     	res += ctime(&end_time);
     	myfile << res;
     	myfile.close();
-
+    	close(new_server_fd);
 		
 	}
 	return 0;
