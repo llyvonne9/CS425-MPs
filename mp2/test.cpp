@@ -141,6 +141,7 @@ int main(int argc, char const *argv[]) {
     valread = read(node.sock, recv_info, BUFFER_SIZE);
     printf("\nThe info received is: %s\n", recv_info); //neighbor status
 
+    close(node.sock);
     return 0;
 }
 
