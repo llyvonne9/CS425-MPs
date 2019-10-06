@@ -358,6 +358,7 @@ int intro_update(int sock){
 int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
+	neighbors = new server_para[num_server];
 
 	//Connect to Introducer
     //int sock;
@@ -380,26 +381,31 @@ int main(int argc, char const *argv[]) {
 	//According the test to change myinfo status
 	thread thread_test;
 	thread_test = thread(test);
+	cout<<"fine1\n";
 
 	//Send heartbeat to neighbors (UDP)
 	thread thread_HBs[NUM_NBR];
     for (int i=0;i<num_server;i++){ 
 		thread_HBs[i] = thread(heartbeat, neighbors[i].addr);
 	}
+	cout<<"fine2\n";
 
 	//Create a socket and listen to heartbeats from neighbors (UDP) by thread. Count timeout for each neighbor
     thread thread_monitor;
 	thread_monitor = thread(monitor);
+	cout<<"fine3\n";
 
 	thread thread_intro_update;
 	thread_intro_update = thread(intro_update, introducer.sock);
+	cout<<"fine4\n";
 
 	long cur_time = 0;
 	while(true){
 		sleep(heartbeat_time/1000);
-		bool is_changed = false;
+		bool is_changed = true;
 	    for (int i=0;i<NUM_NBR;i++){ 
 			cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			//cout<<cur_time<<"\n";
 			if (cur_time - neighbors[i].check_time > wait_time){ 
 				if (neighbors[i].status == 1){
 					neighbors[i].status = 0;
