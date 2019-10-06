@@ -258,10 +258,15 @@ int join(){	//send JOIN to introducer, receie NEIGHBORS
 	char *ptr = strtok(recv_info, delim);
 	for(int i=0; i++; i<NUM_NBR){
 		//printf("'%s'\n", ptr); 
-		int nth = stoi(strtok(NULL, delim));
-		neighbors[nth].id = stoi(strtok(NULL, delim));
-		neighbors[nth].status = stoi(strtok(NULL, delim));
-		neighbors[nth].addr = (string) strtok(NULL, delim);
+		try{
+			int nth = stoi(strtok(NULL, delim));
+			neighbors[nth].id = stoi(strtok(NULL, delim));
+			neighbors[nth].status = stoi(strtok(NULL, delim));
+			neighbors[nth].addr = (string) strtok(NULL, delim);
+        } catch (...){
+            cout<<"recv_info format is incorrect\n";
+            throw;
+        }
 	}
 	return 0;
 }
@@ -324,7 +329,7 @@ int test(){
 		}
 		if (strcmp(received_info,"LEAVE")==0){
 			leave();
-			myinfo.status = 1;
+			myinfo.status = 0;
 			close(introducer.sock);
 			msg = "OK";
 		}
