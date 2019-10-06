@@ -243,24 +243,71 @@ int init_para(int argc, char const *argv[]){
 	return 0;
 }
 
-int join(){	//send JOIN to introducer
+int send_msg(string& msg, struct server_para server){
 	int valread; 
+	int sock;
     char recv_info[BUFFER_SIZE] = {0}; 
+
+    struct sockaddr_in serv_addr; 	
+	init_socket_para(serv_addr, server.addr.c_str(), server.port);
+    if (connect_socket(sock, serv_addr)<0){server.status = -1; return -1;}
+    cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
+
+    send(sock, msg.c_str(), msg.length(), 0);
+    printf("cmd sent %s \n ", msg.c_str());
+
+	valread = read(sock, recv_info, BUFFER_SIZE);
+	recv_info[valread] = '\0';
+	printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+
+	msg = string(recv_info);
+    close(sock);
+	return 0;
+}
+
+int join(){	//send JOIN to introducer
+
+	string msg = "JOIN_"+to_string(myinfo.id);
+	send_msg(msg, introducer);
+
+	char delim[] = " ";
+	char *ptr = strtok((char*) msg.c_str(), delim); 
+
+	if (strcmp(ptr, "NEIGHBORS")==0){
+		for(int i=0; i++; i<NUM_NBR){
+			//printf("'%s'\n", ptr); 
+			int nth = stoi(strtok(NULL, delim));
+			neighbors[nth].id = stoi(strtok(NULL, delim));
+			neighbors[nth].status = stoi(strtok(NULL, delim));
+			neighbors[nth].addr = (string) strtok(NULL, delim);
+		}
+	}
+	/*int valread; 
+    char recv_info[BUFFER_SIZE] = {0}; 
+
+    struct sockaddr_in serv_addr; 	
+	init_socket_para(serv_addr, introducer.addr.c_str(), introducer.port);
+    if (connect_socket(introducer.sock, serv_addr)<0){introducer.status = -1; return -1;}
+    cout<<"introducer= "<<introducer.addr<<":"<<introducer.port<<"\n";
 
     string cmd = "JOIN_"+to_string(myinfo.id);
     send(introducer.sock, cmd.c_str(), cmd.length(), 0);
-    printf("cmd sent %s \n ", cmd.c_str());
+    printf("cmd sent %s \n ", cmd.c_str());*/
 
 	return 0;
 }
 
 int leave(){ //send leave to introducer
-	int valread; 
+	
+	string msg = "LEAVE_"+to_string(myinfo.id);
+	send_msg(msg, introducer);
+
+	/*int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
     string cmd = "LEAVE_"+to_string(myinfo.id);
     send(introducer.sock, cmd.c_str(), cmd.length(), 0);
-    printf("cmd sent %s \n ", cmd.c_str());
+    printf("cmd sent %s \n ", cmd.c_str());*/
     return 0;
 }
 
@@ -303,26 +350,38 @@ int test(){
 
 		//read the request
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-		string msg;
+		string msg = "NOT OK";
 		printf("\nThe order received is: %s\n", received_info);
-		if (strcmp(received_info,"JOIN")==0){
-			myinfo.status = 1;
-			join();
-			msg = "OK";
-		}
-		if (strcmp(received_info,"LEAVE")==0){
-			myinfo.status = 0;
-			leave();
-			//close(introducer.sock);
-			msg = "OK";
-		}
-		if (strcmp(received_info,"INFO")==0){
-			//string msg = to_string(-1) + '\0';
-			msg = "myinfo.id\n";
-		    for (int i=0;i<NUM_NBR;i++){ 
-				//sprintf(msg, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
-				msg += "neighbors[" +to_string(i)+ "],id=" +to_string(neighbors[i].id)+ ",status=" +to_string(neighbors[i].status);
+		char delim[] = " ";
+		char *ptr = strtok(received_info, delim); 
+		if (strcmp(ptr,"TEST")==0){
+			ptr = strtok(NULL, delim);
+			if (strcmp(ptr,"JOIN")==0){
+				myinfo.status = 1;
+				join();
+				msg = "OK";
 			}
+			if (strcmp(ptr,"LEAVE")==0){
+				myinfo.status = 0;
+				leave();
+				//close(introducer.sock);
+				msg = "OK";
+			}
+			if (strcmp(ptr,"INFO")==0){
+				//string msg = to_string(-1) + '\0';
+				msg = "myinfo.id\n";
+			    for (int i=0;i<NUM_NBR;i++){ 
+					//sprintf(msg, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
+					msg += "neighbors[" +to_string(i)+ "],id=" +to_string(neighbors[i].id)+ ",status=" +to_string(neighbors[i].status);
+				}
+			}
+		}
+		if (strcmp(ptr,"UPDATE")==0){
+			int nth = stoi(strtok(NULL, delim));
+			strtok(NULL, delim);
+			int status = stoi(strtok(NULL, delim));
+			neighbors[nth].status = status;
+			msg = "OK";
 		}
 		send(new_server_fd, msg.c_str(), msg.length(), 0);
 		close(new_server_fd);
@@ -373,11 +432,6 @@ int main(int argc, char const *argv[]) {
     //int sock;
     int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
-
-    struct sockaddr_in serv_addr; 	
-	init_socket_para(serv_addr, introducer.addr.c_str(), introducer.port);
-    if (connect_socket(introducer.sock, serv_addr)<0){introducer.status = -1; return -1;}
-    cout<<"introducer= "<<introducer.addr<<":"<<introducer.port<<"\n";
     
     //*** For texture Hostname
     //if (connect_by_host(sock, introducer, SOCK_STREAM)<0){
@@ -387,7 +441,7 @@ int main(int argc, char const *argv[]) {
     //cout<<"introducer"<<<<": "<<introducer.hostname<<":"<introducer.port<<"\n";
 
 
-	//According the test to change myinfo status
+	//According the test to change myinfo status & accept intro info
 	thread thread_test;
 	thread_test = thread(test);
 	cout<<"fine1\n";
@@ -404,9 +458,9 @@ int main(int argc, char const *argv[]) {
 	thread_monitor = thread(monitor);
 	cout<<"fine3\n";
 
-	thread thread_intro_update;
-	thread_intro_update = thread(intro_update, introducer.sock);
-	cout<<"fine4\n";
+	//thread thread_intro_update;
+	//thread_intro_update = thread(intro_update, introducer.sock);
+	//cout<<"fine4\n";
 
 	long cur_time = 0;
 	while(true){
@@ -422,7 +476,9 @@ int main(int argc, char const *argv[]) {
 						//string cmd = "LEAVE_"+id+"_"+i;
 						char tmp[32] = {};
 						sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
-					    send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
+					    //send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
+						string msg = (string) tmp;
+						send_msg(msg, introducer);
 					    printf("cmd sent %s \n ", cmd.c_str());
 					    is_changed = true;
 					}
