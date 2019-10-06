@@ -70,15 +70,15 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
     char buffer[1024] = {0}; 
     int valread;
     printf("The new join node's ip : %s\n", (ips.find(idx)->second).c_str());
-    if(inet_pton(AF_INET, (ips.find(idx)->second).c_str(), &serv_addr.sin_addr)<=0)  
-    { 
-        printf("\nInvalid address/ Address not supported \n"); 
-    } 
+    // if(inet_pton(AF_INET, (ips.find(idx)->second).c_str(), &serv_addr.sin_addr)<=0)  
+    // { 
+    //     printf("\nInvalid address/ Address not supported \n"); 
+    // } 
    
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
-    { 
-        printf("\nConnection Failed \n"); 
-    }  
+    // if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
+    // { 
+    //     printf("\nConnection Failed \n"); 
+    // }  
 
 	string msg = "NEIGHBORS ";
 	for(int i = 0; i < 4; i++) {
