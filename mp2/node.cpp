@@ -17,6 +17,7 @@ using namespace std::chrono;
 
 #define BUFFER_SIZE 10240
 #define QUEUE_SIZE 10
+#define PORT_INTRO 8081
 #define PORT_HB 8082
 #define PORT_TEST 8083
 #define NUM_NBR 4
@@ -224,7 +225,7 @@ int monitor(){ //UDP monitor heartbeat
 
 //Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
-	introducer.port = 8081;
+	introducer.port = PORT_INTRO;
 	if (argc > 2){
 		introducer.addr = (string) argv[2];
 	}
@@ -310,26 +311,29 @@ int test(){
 		if(new_server_fd < 0) {
 			perror("[Error]: Fail to accept to incoming connections");
 			exit(1);
-		}
+		} 
 
 		//read the request
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
+		string msg;
 		printf("\nThe order received is: %s\n", received_info);
 		if (strcmp(received_info,"JOIN")==0){
 			join();
+			msg = "OK";
 		}
 		if (strcmp(received_info,"LEAVE")==0){
 			leave();
+			msg = "OK";
 		}
 		if (strcmp(received_info,"INFO")==0){
 			//string msg = to_string(-1) + '\0';
-			string msg = "myinfo.id\n";
+			msg = "myinfo.id\n";
 		    for (int i=0;i<NUM_NBR;i++){ 
 				//sprintf(msg, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
 				msg += "neighbors[" +to_string(i)+ "],id=" +to_string(neighbors[i].id)+ ",status=" +to_string(neighbors[i].status);
 			}
-			send(new_server_fd, msg.c_str(), msg.length(), 0);
 		}
+		send(new_server_fd, msg.c_str(), msg.length(), 0);
 		close(new_server_fd);
 	}
 	return 0;
