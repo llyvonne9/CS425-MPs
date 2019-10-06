@@ -16,7 +16,7 @@
 
 using namespace std;
 
-#define PORT 8080
+#define PORT 8081
 #define QUEUE_SIZE 10
 #define BUFFER_SIZE 10240
 
@@ -108,6 +108,7 @@ void updateStatus(int type, int idx, map<int, string> ips) {
 
 	for(int i = 0; i < 4; i++) {
 		int neighborIndex = (i + idx + 1) % 10;
+		if(neighborIndex == 0) neighborIndex = 10;
 		if(inet_pton(AF_INET, (ips.find(neighborIndex) -> second).c_str(), &serv_addr.sin_addr)<=0) { 
 	        printf("\nInvalid address/ Address not supported \n"); 
 	    } 
