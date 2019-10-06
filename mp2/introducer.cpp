@@ -116,8 +116,9 @@ void updateStatus(int type, int idx, map<int, string> ips) {
 	    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) { 
 	        printf("\nConnection Failed \n"); 
 	    }  
-		string msg = "UPDATE " + to_string(i + 1) + " " + to_string(type);
+		string msg = "UPDATE " + to_string(i + 1) + " " + to_string(neighborIndex) + " " + to_string(type);
 		send(sock, msg.c_str(), msg.length(), 0);
+		printf("Send %s msg %s\n", to_string(neighborIndex).c_str(), msg.c_str());
 	}
 }
 
