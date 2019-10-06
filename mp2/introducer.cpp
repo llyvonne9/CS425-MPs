@@ -165,7 +165,7 @@ int main(int arc, char const *argv[]) {
 
 	    int type = 0;
 	    string finder = "";
-	    printf(segment[0].c_str() + "\n");
+	    
 	    int idx = atoi(segment[1].c_str());
 	    if(strcmp(segment[0].c_str(), "FAIL") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = FAIL;
