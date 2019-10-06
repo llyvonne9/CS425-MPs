@@ -306,13 +306,13 @@ int test(){
 		string msg;
 		printf("\nThe order received is: %s\n", received_info);
 		if (strcmp(received_info,"JOIN")==0){
-			join();
 			myinfo.status = 1;
+			join();
 			msg = "OK";
 		}
 		if (strcmp(received_info,"LEAVE")==0){
-			leave();
 			myinfo.status = 0;
+			leave();
 			//close(introducer.sock);
 			msg = "OK";
 		}
@@ -404,9 +404,9 @@ int main(int argc, char const *argv[]) {
 	thread_monitor = thread(monitor);
 	cout<<"fine3\n";
 
-	//thread thread_intro_update;
-	//thread_intro_update = thread(intro_update, introducer.sock);
-	//cout<<"fine4\n";
+	thread thread_intro_update;
+	thread_intro_update = thread(intro_update, introducer.sock);
+	cout<<"fine4\n";
 
 	long cur_time = 0;
 	while(true){
