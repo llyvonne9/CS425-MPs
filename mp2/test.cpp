@@ -18,8 +18,8 @@ using namespace std::chrono;
 #define BUFFER_SIZE 10240
 #define QUEUE_SIZE 10
 #define PORT_INTRO 8081
-#define PORT_HB 8082
-#define PORT_TEST 8083
+#define PORT_HB 8100
+#define PORT_TEST 8200
 #define NUM_NBR 4
 
 //Server parameters to assign and to print
@@ -27,7 +27,7 @@ struct server_para {
     //char *addr;
     string addr = "127.0.0.1";
     string hostname = "local";
-    int port = PORT_HB;
+    int port = PORT_TEST;
     long check_time = 0;
     int id = -1;
     int status = 1;
@@ -114,8 +114,8 @@ int init_para(int argc, char const *argv[]){
         printf("use paramer: ip port command(JOIN/LEAVE/INFO)");
     }
 
-    node.addr = (string) argv[1];
-    node.port = stoi(argv[2]);
+    node.port = PORT_TEST + stoi(argv[1]);
+    node.addr = (string) argv[2];
     cmd = "TEST "+(string) argv[3];
 
     return 0;

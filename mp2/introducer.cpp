@@ -17,7 +17,7 @@
 using namespace std;
 
 #define PORT 8081
-#define NODEPORT 8083
+#define NODEPORT_BASE 8200
 #define QUEUE_SIZE 10
 #define BUFFER_SIZE 10240
 
@@ -118,7 +118,7 @@ void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sock
 	    } 
 	   
 	    serv_addr.sin_family = AF_INET; 
-	    serv_addr.sin_port = htons(NODEPORT); 
+	    serv_addr.sin_port = htons(NODEPORT+neighborIndex); 
 
 
 
