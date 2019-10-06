@@ -276,7 +276,7 @@ int leave(){ //send leave to introducer
 	int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
-    string cmd = "LEAVE_"+myinfo.id;
+    string cmd = "LEAVE_"+to_string(myinfo.id);
     send(introducer.sock, cmd.c_str(), cmd.length(), 0);
     printf("cmd sent %s \n ", cmd.c_str());
     return 0;
