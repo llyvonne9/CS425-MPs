@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <chrono>
+#include <vector>
 using namespace std;
 using namespace std::chrono;
 
@@ -80,6 +81,21 @@ int connect_by_host(int &sock, server_para &server, int socktype){
     //}
     freeaddrinfo(addrs);
     return sock;
+}
+
+vector<string> split (string s, string delimiter) {
+    size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+    string token;
+    vector<string> res;
+
+    while ((pos_end = s.find (delimiter, pos_start)) != string::npos) {
+        token = s.substr (pos_start, pos_end - pos_start);
+        pos_start = pos_end + delim_len;
+        res.push_back (token);
+    }
+
+    res.push_back (s.substr (pos_start));
+    return res;
 }
 
 //Initialize network parameters with IPV4 adress
@@ -191,9 +207,7 @@ int monitor(){ //UDP monitor heartbeat
     servaddr.sin_addr.s_addr = INADDR_ANY;
       
     // Bind the socket with the server address 
-    if ( bind(sockfd, (const struct sockaddr *)&servaddr,  
-            sizeof(servaddr)) < 0 ) 
-    { 
+    if ( ::bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0 ) { 
         perror("bind failed"); 
         exit(EXIT_FAILURE); 
     } 
@@ -269,19 +283,38 @@ int join(){	//send JOIN to introducer
 
 	string msg = "JOIN_"+to_string(myinfo.id);
 	send_msg(msg, introducer);
-
-	char delim[] = " ";
-	char *ptr = strtok((char*) msg.c_str(), delim); 
-
-	if (strcmp(ptr, "NEIGHBORS")==0){
-		for(int i=0; i++; i<NUM_NBR){
+	cout << msg << "!!!\n";
+	// char delim[] = " ";
+	// char *ptr = strtok((char*) msg.c_str(), delim); 
+	// cout << "After join" << ptr;
+	// if (strcmp(ptr, "NEIGHBORS")==0){
+	// 	for(int i=0; i++; i<NUM_NBR){
 			//printf("'%s'\n", ptr); 
-			int nth = stoi(strtok(NULL, delim));
-			neighbors[nth].id = stoi(strtok(NULL, delim));
-			neighbors[nth].status = stoi(strtok(NULL, delim));
-			neighbors[nth].addr = (string) strtok(NULL, delim);
-		}
+			// int nth = stoi(strtok(NULL, delim));
+			// neighbors[nth].id = stoi(strtok(NULL, delim));
+			// int status = stoi(strtok(NULL, delim));
+			// //if (status==1 && neighbors[nth].status!=1){
+			// neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+			// 		std::chrono::system_clock::now().time_since_epoch()).count();
+			// //}
+			// neighbors[nth].status = status;
+			// neighbors[nth].addr = (string) strtok(NULL, delim);
+			// cout<<nth<<" "<<neighbors[nth].id<<" "<<status<<" "<<neighbors[nth].addr<<"\n";
+		// }
+	// }
+	string deli = " "; 
+	vector<string> nbrs = split(msg, deli);
+	cout << "nb size " << to_string(nbrs.size());
+	for(int i=0; i<NUM_NBR; i++){
+			int nth = stoi(nbrs[NUM_NBR * i + 1]);
+			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
+			neighbors[nth].status = stoi(nbrs[NUM_NBR * i + 3]);
+			neighbors[nth].addr = nbrs[NUM_NBR * i + 4];
+			neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+					std::chrono::system_clock::now().time_since_epoch()).count();
+			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
 	}
+
 	/*int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
@@ -330,7 +363,7 @@ int test(){
 	addr.sin_port = htons(PORT_TEST);
 
 	//bind socket to the address
-	if(bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+	if(::bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
 		perror("[Error]: Fail to bind to address");
 		exit(1);
 	}
@@ -378,10 +411,19 @@ int test(){
 		}
 		if (strcmp(ptr,"UPDATE")==0){
 			int nth = stoi(strtok(NULL, delim));
-			strtok(NULL, delim);
+			int id = stoi(strtok(NULL, delim));
 			int status = stoi(strtok(NULL, delim));
 			neighbors[nth].status = status;
+			neighbors[nth].id = id;
+			printf("neighbor %d status change to %d\n", id, status);
 			msg = "OK";
+
+			printf("Now the membership list is: \n");
+			for(int i = 0; i < NUM_NBR; i++) {
+				if(neighbors[i].status == 1) {
+					printf("Machine %d\n", neighbors[i].id);
+				}
+			}
 		}
 		send(new_server_fd, msg.c_str(), msg.length(), 0);
 		close(new_server_fd);
@@ -403,17 +445,18 @@ int intro_update(int sock){ //deal with all messages received from introducer
 			char *ptr = strtok(recv_info, delim); 
 
 			if (strcmp(ptr, "NEIGHBORS")==0){
-				for(int i=0; i++; i<NUM_NBR){
+				for(int i=0; i<NUM_NBR; i++){
 					//printf("'%s'\n", ptr); 
 					int nth = stoi(strtok(NULL, delim));
 					neighbors[nth].id = stoi(strtok(NULL, delim));
 					int status = stoi(strtok(NULL, delim));
-					if (status==1 && neighbors[nth].status!=1){
-						neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+					//if (status==1 && neighbors[nth].status!=1){
+					neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 							std::chrono::system_clock::now().time_since_epoch()).count();
-					}
+					//}
 					neighbors[nth].status = status;
 					neighbors[nth].addr = (string) strtok(NULL, delim);
+					cout<<nth<<" "<<status<<" "<<neighbors[nth].addr<<"\n";
 				}
 			}
 			if (strcmp(ptr, "UPDATE")==0){
@@ -430,7 +473,7 @@ int intro_update(int sock){ //deal with all messages received from introducer
 int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
-	neighbors = new server_para[num_server];
+	neighbors = new server_para[NUM_NBR];
 	myinfo.status = 0; //status = leave until test says join
 
 	//Connect to Introducer
@@ -475,22 +518,24 @@ int main(int argc, char const *argv[]) {
 		    for (int i=0;i<NUM_NBR;i++){ 
 				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 				//cout<<cur_time<<"\n";
-				if (cur_time - neighbors[i].check_time > wait_time){ 
-					if (neighbors[i].status == 1){
-						neighbors[i].status = -1;
-						//string cmd = "LEAVE_"+id+"_"+i;
-						char tmp[32] = {};
-						sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
-					    //send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
-						string msg = (string) tmp;
-						send_msg(msg, introducer);
-					    printf("cmd sent %s \n ", cmd.c_str());
-					    is_changed = true;
-					}
-				} else{
-					if (neighbors[i].status != 1) {
-						neighbors[i].status = 1;
-						is_changed = true;
+				if (neighbors[i].id != myinfo.id){
+					if (cur_time - neighbors[i].check_time > wait_time){ 
+						if (neighbors[i].status == 1){
+							neighbors[i].status = -1;
+							//string cmd = "LEAVE_"+id+"_"+i;
+							char tmp[32] = {};
+							sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
+						    //send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
+							string msg = (string) tmp;
+							send_msg(msg, introducer);
+						    printf("cmd sent %s \n ", cmd.c_str());
+						    is_changed = true;
+						}
+					} else{
+						if (neighbors[i].status != 1) {
+							neighbors[i].status = 1;
+							is_changed = true;
+						}
 					}
 				}
 			}
