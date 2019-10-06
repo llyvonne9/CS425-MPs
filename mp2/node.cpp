@@ -44,7 +44,7 @@ struct server_para myinfo;
 struct server_para introducer;
 struct server_para *neighbors;
 int wait_time = 8000; //ms
-int heartbeat_time = wait_time/4;
+int heartbeat_time = wait_time/20;
 
 
 //Connect using hotname. The sock will be used to send message
@@ -167,7 +167,7 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 	int n_heartbeat = 0;
 	//keep listen to request
 	while(true){
-		cout << neighbors[idx].addr.c_str() << "!!!!!!";	
+		// cout << neighbors[idx].addr.c_str() << "!!!!!!";	
 		//if (myinfo.status== 1 && neighbors[idx].status == 1 && strcmp(neighbors[idx].addr.c_str(), "127.0.0.1") == 0 ){
 		if (myinfo.status== 1 && neighbors[idx].status == 1){
 			
@@ -227,10 +227,11 @@ int monitor(){ //UDP monitor heartbeat
 	    buffer[n] = '\0'; 
 
 	    if (myinfo.status == 1){	//update only when I'm alive
-			printf("\nThe order received is: %s\n", buffer);
+			printf("\nMonitor The order received is: %s\n", buffer);
 			int nbr_id = stoi(buffer);
-			for (int i=0; i++; i<NUM_NBR){	//use key or hash mapping in the future
+			for (int i=0; i<NUM_NBR; i++){	//use key or hash mapping in the future
 				if (neighbors[i].id==nbr_id){
+					cout << "in this if \n";
 					neighbors[i].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 						std::chrono::system_clock::now().time_since_epoch()).count();
 				}
@@ -313,12 +314,13 @@ int join(){	//send JOIN to introducer
 	for(int i=0; i<NUM_NBR; i++){
 			int nth = stoi(nbrs[NUM_NBR * i + 1]);
 			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
-			neighbors[nth].status = stoi(nbrs[NUM_NBR * i + 3]);
-			neighbors[nth].addr = nbrs[NUM_NBR * i + 4];
 			if (neighbors[nth].status){
 				neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()).count();
 			}
+			neighbors[nth].status = stoi(nbrs[NUM_NBR * i + 3]);
+			neighbors[nth].addr = nbrs[NUM_NBR * i + 4];
+			
 			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
 	}
 
@@ -533,6 +535,7 @@ int main(int argc, char const *argv[]) {
 				if (neighbors[i].id != myinfo.id){
 					if (cur_time - neighbors[i].check_time > wait_time){ 
 						if (neighbors[i].status == 1){
+							cout << "case 1";
 							neighbors[i].status = -1;
 							//string cmd = "LEAVE_"+id+"_"+i;
 							char tmp[32] = {};
@@ -545,6 +548,7 @@ int main(int argc, char const *argv[]) {
 						}
 					} else{
 						if (neighbors[i].status != 1) {
+							cout << "case 2";
 							neighbors[i].status = 1;
 							is_changed = true;
 						}
