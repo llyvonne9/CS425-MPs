@@ -134,58 +134,59 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
 }
 
 int heartbeat(string IP){	//UDP send heartbeat to IP
-	int server_fd, new_server_fd;
-	struct sockaddr_in servaddr;//, cliaddr;
+	cout << "this is heartbeat";
+	// int server_fd, new_server_fd;
+	// struct sockaddr_in servaddr;//, cliaddr;
 	
-	int read_status;
-    int addrlen = sizeof(servaddr); 
+	// int read_status;
+ //    int addrlen = sizeof(servaddr); 
 
-    //struct timeval tp;
-	//gettimeofday(&tp, NULL);
-	//neighbors[nbr_id].check_time = tp.tv_sec * 1000 + tp.tv_usec / 1000; //get millisecond
+ //    //struct timeval tp;
+	// //gettimeofday(&tp, NULL);
+	// //neighbors[nbr_id].check_time = tp.tv_sec * 1000 + tp.tv_usec / 1000; //get millisecond
 
-	server_fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if(server_fd == 0) {
-		perror("[Error]: Fail to create socket");
-		exit(1);
-	}
+	// server_fd = socket(AF_INET, SOCK_DGRAM, 0);
+	// if(server_fd == 0) {
+	// 	perror("[Error]: Fail to create socket");
+	// 	exit(1);
+	// }
 
-    memset(&servaddr, 0, sizeof(servaddr)); 
-    //memset(&cliaddr, 0, sizeof(cliaddr)); 
+ //    memset(&servaddr, 0, sizeof(servaddr)); 
+ //    //memset(&cliaddr, 0, sizeof(cliaddr)); 
 
-    // Filling server information
-	servaddr.sin_family = AF_INET; //IPv4
-	servaddr.sin_addr.s_addr = inet_addr(IP.c_str()); 
-	servaddr.sin_port = htons(PORT_HB);
+ //    // Filling server information
+	// servaddr.sin_family = AF_INET; //IPv4
+	// servaddr.sin_addr.s_addr = inet_addr(IP.c_str()); 
+	// servaddr.sin_port = htons(PORT_HB);
 
-	//bind socket to the address
-	//if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-	//	perror("[Error]: Fail to bind to address");
-	//	exit(1);
-	//}
+	// //bind socket to the address
+	// //if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+	// //	perror("[Error]: Fail to bind to address");
+	// //	exit(1);
+	// //}
 
-	int n_heartbeat = 0;
-	//keep listen to request
-	while(true){
-		if (myinfo.status==1){
-			char received_info[BUFFER_SIZE] = {0}; 
-			int n; socklen_t len = sizeof(servaddr);
-	    	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
-	        //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
-	        //        &len); 
-	    	//received_info[n] = '\0'; 
-			//printf("\nThe order received is: %s\n", received_info);
-			//int nbr_id = stoi(received_info);
-			//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	// int n_heartbeat = 0;
+	// //keep listen to request
+	// while(true){
+	// 	if (myinfo.status==1){
+	// 		char received_info[BUFFER_SIZE] = {0}; 
+	// 		int n; socklen_t len = sizeof(servaddr);
+	//     	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
+	//         //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
+	//         //        &len); 
+	//     	//received_info[n] = '\0'; 
+	// 		//printf("\nThe order received is: %s\n", received_info);
+	// 		//int nbr_id = stoi(received_info);
+	// 		//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
-			char* hello; sprintf(hello, "%d", myinfo.id);
-			sendto(server_fd, (const char*) hello, strlen(hello),  
-	        	MSG_CONFIRM, (const struct sockaddr *) &servaddr, 
-	            len); 
-	    	printf("Heartbeat %d sent\n", n_heartbeat++);
-	    }
-	    std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
-	}
+	// 		char* hello; sprintf(hello, "%d", myinfo.id);
+	// 		sendto(server_fd, (const char*) hello, strlen(hello),  
+	//         	MSG_CONFIRM, (const struct sockaddr *) &servaddr, 
+	//             len); 
+	//     	printf("Heartbeat %d sent\n", n_heartbeat++);
+	//     }
+	//     std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
+	// }
 	return 0;
 }
 
@@ -283,7 +284,6 @@ int join(){	//send JOIN to introducer
 
 	string msg = "JOIN_"+to_string(myinfo.id);
 	send_msg(msg, introducer);
-	cout << msg << "!!!\n";
 	// char delim[] = " ";
 	// char *ptr = strtok((char*) msg.c_str(), delim); 
 	// cout << "After join" << ptr;
@@ -304,7 +304,7 @@ int join(){	//send JOIN to introducer
 	// }
 	string deli = " "; 
 	vector<string> nbrs = split(msg, deli);
-	cout << "nb size " << to_string(nbrs.size());
+	cout << "nb size " << to_string(nbrs.size()) << "\n";
 	for(int i=0; i<NUM_NBR; i++){
 			int nth = stoi(nbrs[NUM_NBR * i + 1]);
 			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
@@ -313,6 +313,11 @@ int join(){	//send JOIN to introducer
 			neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()).count();
 			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
+	}
+
+	for(int i = 0; i < NUM_NBR; i++) {
+		printf("Machine %d\n status: %d \n", neighbors[i].id, neighbors[i].status);
+	
 	}
 
 	/*int valread; 
@@ -496,7 +501,7 @@ int main(int argc, char const *argv[]) {
 
 	//Send heartbeat to neighbors (UDP)
 	thread thread_HBs[NUM_NBR];
-    for (int i=0;i<num_server;i++){ 
+    for (int i=0;i<NUM_NBR;i++){ 
 		thread_HBs[i] = thread(heartbeat, neighbors[i].addr);
 	}
 	cout<<"fine2\n";

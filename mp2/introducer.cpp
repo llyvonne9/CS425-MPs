@@ -17,6 +17,7 @@
 using namespace std;
 
 #define PORT 8081
+#define NODEPORT 8083
 #define QUEUE_SIZE 10
 #define BUFFER_SIZE 10240
 
@@ -65,7 +66,7 @@ map<int, string> getIPs (string delimiter) {
 }
 
 void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> states, int sock, struct sockaddr_in &serv_addr) {
-
+	int nbIdx[4] = {-2, -1, 1, 2};
     char buffer[1024] = {0}; 
     int valread;
     printf("The new join node's ip : %s\n", (ips.find(idx)->second).c_str());
@@ -81,7 +82,9 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
 
 	string msg = "NEIGHBORS ";
 	for(int i = 0; i < 4; i++) {
-		int neighborIndex = (i + idx + 1) % 10;
+		int neighborIndex = idx + nbIdx[i];
+		if(neighborIndex < 0) neighborIndex += 10;
+		if(neighborIndex > 10) neighborIndex %= 10;
 		if(neighborIndex == 0) neighborIndex = 10;
 		string ip = ips.find(neighborIndex)->second;
 
@@ -93,22 +96,45 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
 	
 }
 
-void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sockaddr_in &serv_addr) {
-	int valread; 
+void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sockaddr_in &serv_addr, map<int, int> states) {
+	int nbIdx[4] = {-2, -1, 1, 2};
 
 	for(int i = 0; i < 4; i++) {
-		int neighborIndex = (i + idx + 1) % 10;
+
+		int neighborIndex = idx + nbIdx[i];
+		if(neighborIndex < 0) neighborIndex += 10;
+		if(neighborIndex > 10) neighborIndex %= 10;
 		if(neighborIndex == 0) neighborIndex = 10;
-		// if(inet_pton(AF_INET, (ips.find(neighborIndex) -> second).c_str(), &serv_addr.sin_addr)<=0) { 
-	 //        printf("\nInvalid address/ Address not supported \n"); 
-	 //    } 
+
+		if((states.find(neighborIndex) -> second) != 1) continue;
+
+
+		int sock = 0, valread; 
+	    struct sockaddr_in serv_addr; 
+	    char buffer[1024] = {0}; 
+	    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) 
+	    { 
+	        printf("\n Socket creation error \n"); 
+	    } 
 	   
-	 //    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) { 
-	 //        printf("\nConnection Failed \n"); 
-	 //    }  
-		string msg = "UPDATE " + to_string(i + 1) + " " + to_string(neighborIndex) + " " + to_string(type);
-		// send(sock, msg.c_str(), msg.length(), 0);
-		printf("Send %s msg %s\n", to_string(neighborIndex).c_str(), msg.c_str());
+	    serv_addr.sin_family = AF_INET; 
+	    serv_addr.sin_port = htons(NODEPORT); 
+
+
+
+		if(inet_pton(AF_INET, (ips.find(neighborIndex) -> second).c_str(), &serv_addr.sin_addr)<=0) { 
+	        printf("\nInvalid address/ Address not supported \n"); 
+	    } 
+	   
+	    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) { 
+	        printf("\nConnection Failed \n"); 
+	    }  
+		string msg = "UPDATE " + to_string(i + 1) + " " + to_string(idx) + " " + to_string(type);
+		
+		printf("Send %s msg %s\n", to_string(idx).c_str(), msg.c_str());
+		send(sock, msg.c_str(), msg.length(), 0);
+		close(sock);
+		sock = 0;
 	}
 }
 
@@ -181,7 +207,7 @@ int main(int arc, char const *argv[]) {
 	    	
 		    states.find(idx)->second = type;
 	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr);
-	    	// updateStatus(type, idx, ips, new_server_fd, addr);
+	    	updateStatus(type, idx, ips, new_server_fd, addr, states);
 	    } else {
 	    	printf("The msg is Invalid");
 	    }
