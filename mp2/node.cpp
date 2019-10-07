@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <chrono>
 #include <vector>
+#include <limits.h>
 using namespace std;
 using namespace std::chrono;
 
@@ -424,7 +425,7 @@ int test(){
 		char *ptr = strtok(received_info, delim); 
 		if (strcmp(ptr,"TEST")==0){
 			ptr = strtok(NULL, delim);
-			if (strcmp(ptr,"JOIN")==0 && myinfo.status==1){
+			if (strcmp(ptr,"JOIN")==0 && myinfo.status!=1){
 				join();
 				myinfo.status = 1;
 				msg = "OK";
@@ -516,6 +517,8 @@ int intro_update(int sock){ //deal with all messages received from introducer //
 }
 
 int main(int argc, char const *argv[]) {
+	
+	
 	//Set id
 	init_para(argc, argv);
 	neighbors = new server_para[NUM_NBR];
@@ -525,6 +528,9 @@ int main(int argc, char const *argv[]) {
     //int sock;
     int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
+
+    char hostname[HOST_NAME_MAX];
+	cout << "This is machine " << to_string(myinfo.id) << "\n";
     
     //*** For texture Hostname
     //if (connect_by_host(sock, introducer, SOCK_STREAM)<0){
