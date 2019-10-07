@@ -111,7 +111,7 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
 //Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
     if (argc != 3){
-        printf("use paramer: ip port command(JOIN/LEAVE/INFO)");
+        printf("use paramer: id ip command(JOIN/LEAVE/INFO)");
     }
 
     node.port = PORT_TEST + stoi(argv[1]);
