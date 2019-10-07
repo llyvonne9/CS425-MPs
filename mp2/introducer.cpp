@@ -190,18 +190,18 @@ int main(int arc, char const *argv[]) {
 	    vector<string> segment = split (received_info, delimiter);
 
 	    int type = 0;
-	    string finder = "";
+	    ;
 	    
 	    int idx = atoi(segment[1].c_str());
 	    if(strcmp(segment[0].c_str(), "FAIL") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = FAIL;
-	    	finder = segment[2];
-	    	states.find(idx)->second = type;
-	    	// updateStatus(type, idx, ips, new_server_fd, addr);
+	    	int failIdx = stoi(segment[2]);
+	    	states.find(failIdx)->second = type;
+	    	// updateStatus(type, failIdx, ips, new_server_fd, addr, states);
 	    } else if(strcmp(segment[0].c_str(), "LEAVE") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = LEAVE;
 	    	states.find(idx)->second = type;
-	    	// updateStatus(type, idx, ips, new_server_fd, addr);
+	    	updateStatus(type, idx, ips, new_server_fd, addr, states);
 	    } else if(strcmp(segment[0].c_str(), "JOIN") == 0 && ((states.find(idx) -> second) == FAIL || (states.find(idx) -> second) == LEAVE)) {
 	    	type = JOIN;
 	    	
