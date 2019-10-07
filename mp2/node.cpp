@@ -313,13 +313,14 @@ int join(){	//send JOIN to introducer
 	cout << "nb size " << to_string(nbrs.size()) << "\n";
 	for(int i=0; i<NUM_NBR; i++){
 			int nth = stoi(nbrs[NUM_NBR * i + 1]);
-			if (neighbors[nth].status == 1){
+			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
+			int status = stoi(nbrs[NUM_NBR * i + 3]);
+			if (status == 1){
 				neighbors[nth].check_time = (long) std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()).count();
 				cout<<neighbors[nth].check_time<<"\n";
 			}
-			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
-			neighbors[nth].status = stoi(nbrs[NUM_NBR * i + 3]);
+			neighbors[nth].status = status;
 			neighbors[nth].addr = nbrs[NUM_NBR * i + 4];
 			neighbors[nth].port = PORT_HB+neighbors[nth].id;
 			
