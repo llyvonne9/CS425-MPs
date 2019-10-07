@@ -25,6 +25,7 @@ using namespace std;
 #define JOIN 1
 #define LEAVE 0
 
+//split a string to vector based on a delimiter
 vector<string> split (string s, string delimiter) {
     size_t pos_start = 0, pos_end, delim_len = delimiter.length();
     string token;
@@ -40,6 +41,7 @@ vector<string> split (string s, string delimiter) {
     return res;
 }
 
+//get ips of all nodes
 map<int, string> getIPs (string delimiter) {
 	map<int, string> map;
 	char szTest[100] = {0};
@@ -65,20 +67,12 @@ map<int, string> getIPs (string delimiter) {
 	return map;
 }
 
+//introduce neighbors to a node when it joins
 void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> states, int sock, struct sockaddr_in &serv_addr) {
 	int nbIdx[4] = {-2, -1, 1, 2};
     char buffer[1024] = {0}; 
     int valread;
     printf("The new join node's ip : %s\n", (ips.find(idx)->second).c_str());
-    // if(inet_pton(AF_INET, (ips.find(idx)->second).c_str(), &serv_addr.sin_addr)<=0)  
-    // { 
-    //     printf("\nInvalid address/ Address not supported \n"); 
-    // } 
-   
-    // if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
-    // { 
-    //     printf("\nConnection Failed \n"); 
-    // }  
 
 	string msg = "NEIGHBORS ";
 	for(int i = 0; i < 4; i++) {
@@ -90,13 +84,16 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
 
 		msg += to_string(i) + " " + to_string(neighborIndex) + " " + to_string(states.find(neighborIndex)->second) + " " + ip + " ";
 	}
-	printf("Sent %s\n", msg.c_str());
+	printf("Sent JOIN msg %s\n", msg.c_str());
 	send(sock, msg.c_str(), msg.length(), 0);
 	printf("NEIGHBORS info sent to new join node. \n"); 
 	
 }
 
+//If a node leave or join update its status in its neighbors' membershiplist
 void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sockaddr_in &serv_addr, map<int, int> states) {
+	
+	//neighbors of a node is its nearest nodes in the virtual ring, eg neighbors of 1 is 9, 10, 2, 3
 	int nbIdx[4] = {-2, -1, 1, 2};
 
 	for(int i = 0; i < 4; i++) {
@@ -106,6 +103,7 @@ void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sock
 		if(neighborIndex > 10) neighborIndex %= 10;
 		if(neighborIndex == 0) neighborIndex = 10;
 
+		//if the neighbor is not in the network, do not send the update
 		if((states.find(neighborIndex) -> second) != 1) continue;
 
 
@@ -132,10 +130,10 @@ void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sock
 	    }  
 	    
 
-
+	    //Update + the update node is nth neighbor of its neighbor i + neighbor index + update to which type
 		string msg = "UPDATE " + to_string(4 - i) + " " + to_string(idx) + " " + to_string(type);
 		
-		printf("Send %s's change msg %s\n", to_string(idx).c_str(), msg.c_str());
+		printf("Update %s change to %d. Sent its neighbor %s\n", to_string(idx).c_str(), type, to_string(neighborIndex).c_str());
 		send(sock, msg.c_str(), msg.length(), 0);
 		close(sock);
 		sock = 0;
@@ -215,6 +213,7 @@ int main(int arc, char const *argv[]) {
 	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr);
 	    	updateStatus(type, idx, ips, new_server_fd, addr, states);
 	    } else {
+	    	// If user sends invalid command like join twice or leave when it is inactive
 	    	printf("The msg is Invalid");
 	    	string msg = "OK";
 	    	send(new_server_fd, msg.c_str(), msg.length(), 0);
@@ -230,7 +229,7 @@ int main(int arc, char const *argv[]) {
 		    iter++;
 		}
 	    
-
+		//Write down the status chance to logs
 	    ofstream myfile;
     	myfile.open("log.txt", ios::app);
     	string res = "machine " + to_string(idx) + " " + to_string(type) + " at ";

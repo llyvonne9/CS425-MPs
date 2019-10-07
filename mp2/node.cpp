@@ -59,27 +59,23 @@ int connect_by_host(int &sock, server_para &server, int socktype){
     const char *hostname = server.hostname.c_str();
     int err = getaddrinfo(hostname, port_str, &hints, &addrs);
     if (err != 0){
-        //fprintf(stderr, "%s: %s\n", hostname, gai_strerror(err));
         printf("\nInvalid address/ Address not supported \n");
         return -1;
     }
-    //for(struct addrinfo *addr = addrs; addr != NULL; addr = addr->ai_next){
+    
     struct addrinfo *addr = addrs;
-        sock = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
-        // cout<< addr->ai_addr <<"\n";
-        // cout<<"sock="<<sock<<"\n";
-        if (sock<0){
-            err = errno; 
-            close(sock);
-            printf("\n Socket creation error \n"); 
-            //fprintf(stderr, "%s: %s\n", hostname, strerror(err));
-            return -1;
-        }
-        if (connect(sock, addr->ai_addr, addr->ai_addrlen) < 0){ 
-            printf("\nConnection Failed \n"); 
-            return -1; 
-        }
-    //}
+    sock = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+    if (sock<0){
+        err = errno; 
+        close(sock);
+        printf("\n Socket creation error \n"); 
+        return -1;
+    }
+    if (connect(sock, addr->ai_addr, addr->ai_addrlen) < 0){ 
+        printf("\nConnection Failed \n"); 
+        return -1; 
+    }
+    
     freeaddrinfo(addrs);
     return sock;
 }
@@ -123,7 +119,6 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
         printf("\n Socket creation error \n"); 
         return -1; 
     } 
-      
    
     if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) 
     { 
@@ -156,16 +151,13 @@ int send_msg(string& msg, struct server_para server){
 	return 0;
 }	
 
+// send heartbeat to the neighbor with the address IP
 int heartbeat(int idx){	//UDP send heartbeat to IP
 	int server_fd, new_server_fd;
 	struct sockaddr_in servaddr;//, cliaddr;
 	
 	int read_status;
     int addrlen = sizeof(servaddr); 
-
-    //struct timeval tp;
-	//gettimeofday(&tp, NULL);
-	//neighbors[nbr_id].check_time = tp.tv_sec * 1000 + tp.tv_usec / 1000; //get millisecond
 
 	server_fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if(server_fd == 0) {
@@ -174,16 +166,9 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 	}
 
     memset(&servaddr, 0, sizeof(servaddr)); 
-    //memset(&cliaddr, 0, sizeof(cliaddr)); 
 
     // Filling server information
 	servaddr.sin_family = AF_INET; //IPv4
-
-	//bind socket to the address
-	//if(bind(server_fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
-	//	perror("[Error]: Fail to bind to address");
-	//	exit(1);
-	//}
 
 	int n_heartbeat = 0;
 	//keep listen to request
@@ -191,8 +176,6 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 	//int maxN=1, cc [maxN], tmpc[maxN]; float msg_loss_rate = 0.3; srand( time( NULL ) ); //for msg loss emulation
 
 	while(true){
-		// cout << neighbors[idx].addr.c_str() << "!!!!!!";	
-		//if (myinfo.status== 1 && neighbors[idx].status == 1 && strcmp(neighbors[idx].addr.c_str(), "127.0.0.1") == 0 ){
 
 		if (myinfo.status== 1 && neighbors[idx].status == 1){
 
@@ -211,26 +194,19 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 
 			char received_info[BUFFER_SIZE] = {0}; 
 			int n; socklen_t len = sizeof(servaddr);
-	    	//n = recvfrom(server_fd, (char *)buffer, MAXLINE,  
-	        //        MSG_WAITALL, ( struct sockaddr *) &cliaddr, 
-	        //        &len); 
-	    	//received_info[n] = '\0'; 
-			//printf("\nThe order received is: %s\n", received_info);
-			//int nbr_id = stoi(received_info);
-			//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
-			//char* hello; sprintf(hello, "%d", myinfo.id);
+	    	
 			string hello = to_string(myinfo.id)+" "+to_string(n_heartbeat);
 			sendto(server_fd, hello.c_str(), hello.length(),  
 	        	0, (const struct sockaddr *) &servaddr, 
 	            len); 
-	    	// printf("Heartbeat %d sent to %d\n", n_heartbeat++, neighbors[idx].id);
 	    }
 	    std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
 	}
 	return 0;
 }
 
+
+// listen to neighbor's heartbeat
 int monitor(){ //UDP monitor heartbeat
 	int sockfd; 
     struct sockaddr_in	servaddr; 
@@ -301,28 +277,12 @@ int init_para(int argc, char const *argv[]){
 	return 0;
 }
 
-int join(){	//send JOIN to introducer
+//send JOIN to introducer
+int join(){	
 
 	string msg = "JOIN_"+to_string(myinfo.id);
 	send_msg(msg, introducer);
-	// char delim[] = " ";
-	// char *ptr = strtok((char*) msg.c_str(), delim); 
-	// cout << "After join" << ptr;
-	// if (strcmp(ptr, "NEIGHBORS")==0){
-	// 	for(int i=0; i++; i<NUM_NBR){
-			//printf("'%s'\n", ptr); 
-			// int nth = stoi(strtok(NULL, delim));
-			// neighbors[nth].id = stoi(strtok(NULL, delim));
-			// int status = stoi(strtok(NULL, delim));
-			// //if (status==1 && neighbors[nth].status!=1){
-			// neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
-			// 		std::chrono::system_clock::now().time_since_epoch()).count();
-			// //}
-			// neighbors[nth].status = status;
-			// neighbors[nth].addr = (string) strtok(NULL, delim);
-			// cout<<nth<<" "<<neighbors[nth].id<<" "<<status<<" "<<neighbors[nth].addr<<"\n";
-		// }
-	// }
+
 	string deli = " "; 
 	vector<string> nbrs = split(msg, deli);
 	// cout << "nb size " << to_string(nbrs.size()) << "\n";
@@ -351,35 +311,19 @@ int join(){	//send JOIN to introducer
 		}
 	}
 
-	/*int valread; 
-    char recv_info[BUFFER_SIZE] = {0}; 
-
-    struct sockaddr_in serv_addr; 	
-	init_socket_para(serv_addr, introducer.addr.c_str(), introducer.port);
-    if (connect_socket(introducer.sock, serv_addr)<0){introducer.status = -1; return -1;}
-    cout<<"introducer= "<<introducer.addr<<":"<<introducer.port<<"\n";
-
-    string cmd = "JOIN_"+to_string(myinfo.id);
-    send(introducer.sock, cmd.c_str(), cmd.length(), 0);
-    printf("cmd sent %s \n ", cmd.c_str());*/
-
 	return 0;
 }
 
-int leave(){ //send leave to introducer
+//send leave to introducer
+int leave(){ 
 	
 	string msg = "LEAVE_"+to_string(myinfo.id);
 	send_msg(msg, introducer);
 
-	/*int valread; 
-    char recv_info[BUFFER_SIZE] = {0}; 
-
-    string cmd = "LEAVE_"+to_string(myinfo.id);
-    send(introducer.sock, cmd.c_str(), cmd.length(), 0);
-    printf("cmd sent %s \n ", cmd.c_str());*/
     return 0;
 }
 
+//listen to test command
 int test(){
 	int server_fd;
 	struct sockaddr_in addr;
@@ -445,6 +389,7 @@ int test(){
 				}
 			}
 		}
+		//if introducer sent update information about its neighbor
 		if (strcmp(ptr,"UPDATE")==0){
 			int nth = stoi(strtok(NULL, delim)) - 1;
 			int id = stoi(strtok(NULL, delim));
@@ -477,7 +422,8 @@ int test(){
 	return 0;
 }
 
-int intro_update(int sock){ //deal with all messages received from introducer //depleted
+//deal with all messages received from introducer //depleted
+int intro_update(int sock){ 
     int valread; 
 
 	while (true){
@@ -543,23 +489,19 @@ int main(int argc, char const *argv[]) {
 	//According the test to change myinfo status & accept intro info
 	thread thread_test;
 	thread_test = thread(test);
-	cout<<"fine1\n";
+	// cout<<"fine1\n";
 
 	//Send heartbeat to neighbors (UDP)
 	thread thread_HBs[NUM_NBR];
     for (int i=0;i<NUM_NBR;i++){ 
 		thread_HBs[i] = thread(heartbeat, i);
 	}
-	cout<<"fine2\n";
+	// cout<<"fine2\n";
 
 	//Create a socket and listen to heartbeats from neighbors (UDP) by thread. Count timeout for each neighbor
     thread thread_monitor;
 	thread_monitor = thread(monitor);
-	cout<<"fine3\n";
-
-	//thread thread_intro_update;
-	//thread_intro_update = thread(intro_update, introducer.sock);
-	//cout<<"fine4\n";
+	// cout<<"fine3\n";
 
 	long cur_time = 0;
 	while(true){
@@ -569,6 +511,8 @@ int main(int argc, char const *argv[]) {
 		    for (int i=0;i<NUM_NBR;i++){ 
 				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 				if (neighbors[i].id != myinfo.id){
+
+					//if the time since last heartbeat exceeded the wait time
 					if (cur_time - neighbors[i].check_time > wait_time){ 
 						if (neighbors[i].status == 1){
 							cout<<cur_time<<" "<<neighbors[i].check_time<<" "<<cur_time - neighbors[i].check_time<<" "<<wait_time<<"\n";
@@ -592,6 +536,7 @@ int main(int argc, char const *argv[]) {
 							}
 						}
 					} else{
+						// If we hear heartbeat from an "inactive"node, restore its active status
 						if (neighbors[i].status != 1) {
 							cout << "case 2";
 							neighbors[i].status = 1;
