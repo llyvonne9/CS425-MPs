@@ -434,6 +434,8 @@ int test(){
 				neighbors[nth].check_time = (long) std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()).count();
 				//cout<<neighbors[nth].check_time<<"\n";
+			} else if (status == 0 and neighbors[nth].status == 1){ //Note introduce will not inform -1 (fail) in the current design
+				neighbors[nth].check_time = 0;
 			}
 			neighbors[nth].status = status;
 			neighbors[nth].id = id;
@@ -453,7 +455,7 @@ int test(){
 	return 0;
 }
 
-int intro_update(int sock){ //deal with all messages received from introducer
+int intro_update(int sock){ //deal with all messages received from introducer //depleted
     int valread; 
 
 	while (true){
