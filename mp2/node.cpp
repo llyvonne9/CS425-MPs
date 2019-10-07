@@ -44,7 +44,7 @@ struct server_para myinfo;
 struct server_para introducer;
 struct server_para *neighbors;
 int wait_time = 8000; //ms
-int heartbeat_time = wait_time/20;
+int heartbeat_time = wait_time/8;
 
 
 //Connect using hotname. The sock will be used to send message
@@ -183,11 +183,11 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 			//neighbors[nbr_id].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 			//char* hello; sprintf(hello, "%d", myinfo.id);
-			string hello = to_string(myinfo.id);
+			string hello = to_string(myinfo.id)+" "+to_string(n_heartbeat);
 			sendto(server_fd, hello.c_str(), hello.length(),  
 	        	0, (const struct sockaddr *) &servaddr, 
 	            len); 
-	    	printf("Heartbeat %d sent\n", n_heartbeat++);
+	    	printf("Heartbeat %d sent to %d\n", n_heartbeat++, neighbors[idx].id);
 	    }
 	    std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
 	}
@@ -226,15 +226,16 @@ int monitor(){ //UDP monitor heartbeat
 	    buffer[n] = '\0'; 
 
 	    if (myinfo.status == 1){	//update only when I'm alive
-			printf("\nMonitor The order received is: %s\n", buffer);
-			int nbr_id = stoi(buffer);
+			printf("\nMonitor heartbeat from node : %s\n", buffer);
+	    	char delim[] = " "; char *ptr = strtok(buffer, delim); 
+			int nbr_id = stoi(ptr);
 			for (int i=0; i<NUM_NBR; i++){	//use key or hash mapping in the future
 				if (neighbors[i].id==nbr_id){
-					cout << "in this if \n";
+					//cout << "in this if \n";
 					neighbors[i].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 						std::chrono::system_clock::now().time_since_epoch()).count();
+					break;
 				}
-				break;
 			}
 		}
 
@@ -313,8 +314,9 @@ int join(){	//send JOIN to introducer
 	for(int i=0; i<NUM_NBR; i++){
 			int nth = stoi(nbrs[NUM_NBR * i + 1]);
 			if (neighbors[nth].status == 1){
-				neighbors[nth].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+				neighbors[nth].check_time = (long) std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()).count();
+				cout<<neighbors[nth].check_time<<"\n";
 			}
 			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
 			neighbors[nth].status = stoi(nbrs[NUM_NBR * i + 3]);
@@ -404,8 +406,8 @@ int test(){
 		if (strcmp(ptr,"TEST")==0){
 			ptr = strtok(NULL, delim);
 			if (strcmp(ptr,"JOIN")==0){
-				myinfo.status = 1;
 				join();
+				myinfo.status = 1;
 				msg = "OK";
 			}
 			if (strcmp(ptr,"LEAVE")==0){
@@ -427,9 +429,14 @@ int test(){
 			int nth = stoi(strtok(NULL, delim));
 			int id = stoi(strtok(NULL, delim));
 			int status = stoi(strtok(NULL, delim));
+			if (status == 1 and neighbors[nth].status != 1){
+				neighbors[nth].check_time = (long) std::chrono::duration_cast<std::chrono::milliseconds>(
+					std::chrono::system_clock::now().time_since_epoch()).count();
+				//cout<<neighbors[nth].check_time<<"\n";
+			}
 			neighbors[nth].status = status;
 			neighbors[nth].id = id;
-			printf("neighbor %d status change to %d\n", id, status);
+			printf("neighbor_node_id %d status change to %d\n", id, status);
 			msg = "OK";
 
 			printf("Now the membership list is: \n");
@@ -531,10 +538,10 @@ int main(int argc, char const *argv[]) {
 			bool is_changed = true;
 		    for (int i=0;i<NUM_NBR;i++){ 
 				cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-				//cout<<cur_time<<"\n";
 				if (neighbors[i].id != myinfo.id){
 					if (cur_time - neighbors[i].check_time > wait_time){ 
 						if (neighbors[i].status == 1){
+							cout<<cur_time<<" "<<neighbors[i].check_time<<" "<<cur_time - neighbors[i].check_time<<" "<<wait_time<<"\n";
 							cout << "case 1";
 							neighbors[i].status = -1;
 							//string cmd = "LEAVE_"+id+"_"+i;
