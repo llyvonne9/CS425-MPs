@@ -43,7 +43,7 @@ string log_name = "vm";
 struct server_para myinfo;
 struct server_para introducer;
 struct server_para *neighbors;
-int wait_time = 8000; //ms
+int wait_time = 8000; //ms can use 80 for emulating msg loss
 int heartbeat_time = wait_time/8;
 
 
@@ -133,6 +133,28 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
     return sock;
 }
 
+int send_msg(string& msg, struct server_para server){
+	int valread; 
+	int sock;
+    char recv_info[BUFFER_SIZE] = {0}; 
+
+    struct sockaddr_in serv_addr; 	
+	init_socket_para(serv_addr, server.addr.c_str(), server.port);
+    if (connect_socket(sock, serv_addr)<0){server.status = -1; return -1;}
+    cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
+
+    send(sock, msg.c_str(), msg.length(), 0);
+    printf("cmd sent %s \n ", msg.c_str());
+
+	valread = read(sock, recv_info, BUFFER_SIZE);
+	recv_info[valread] = '\0';
+	printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+
+	msg = string(recv_info);
+    close(sock);
+	return 0;
+}	
+
 int heartbeat(int idx){	//UDP send heartbeat to IP
 	int server_fd, new_server_fd;
 	struct sockaddr_in servaddr;//, cliaddr;
@@ -164,10 +186,24 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 
 	int n_heartbeat = 0;
 	//keep listen to request
+
+	//int maxN=1, cc [maxN], tmpc[maxN]; float msg_loss_rate = 0.3; srand( time( NULL ) ); //for msg loss emulation
+
 	while(true){
 		// cout << neighbors[idx].addr.c_str() << "!!!!!!";	
 		//if (myinfo.status== 1 && neighbors[idx].status == 1 && strcmp(neighbors[idx].addr.c_str(), "127.0.0.1") == 0 ){
+
 		if (myinfo.status== 1 && neighbors[idx].status == 1){
+
+			//for msg loss emulation
+			/*for (int i=0; i<maxN; i++){
+			double r = ((double) rand() / (RAND_MAX)); //emulate msg loss
+			if (cc[i]>0 && r>=msg_loss_rate) {cc[i]=0;}
+			if (r<msg_loss_rate){cc[i]++;}
+			if (cc[i]==2){
+				string msg = "INFO_False alarm by "+to_string(myinfo.id)+" after "+to_string(n_heartbeat-tmpc[i]);
+				send_msg(msg, introducer); cc[i]=0;tmpc[i]=n_heartbeat;
+			}}*/
 			
 			servaddr.sin_addr.s_addr = inet_addr(neighbors[idx].addr.c_str()); 
 			servaddr.sin_port = htons(PORT_HB+neighbors[idx].id);
@@ -261,28 +297,6 @@ int init_para(int argc, char const *argv[]){
 		cout << "Need one parameter: id";
 		return -1;
 	}
-	return 0;
-}
-
-int send_msg(string& msg, struct server_para server){
-	int valread; 
-	int sock;
-    char recv_info[BUFFER_SIZE] = {0}; 
-
-    struct sockaddr_in serv_addr; 	
-	init_socket_para(serv_addr, server.addr.c_str(), server.port);
-    if (connect_socket(sock, serv_addr)<0){server.status = -1; return -1;}
-    cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
-
-    send(sock, msg.c_str(), msg.length(), 0);
-    printf("cmd sent %s \n ", msg.c_str());
-
-	valread = read(sock, recv_info, BUFFER_SIZE);
-	recv_info[valread] = '\0';
-	printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
-
-	msg = string(recv_info);
-    close(sock);
 	return 0;
 }
 
@@ -430,6 +444,7 @@ int test(){
 			int nth = stoi(strtok(NULL, delim));
 			int id = stoi(strtok(NULL, delim));
 			int status = stoi(strtok(NULL, delim));
+			for (nth=0; nth<4; nth++){ if (id == neighbors[nth].id){break;} }
 			if (status == 1 and neighbors[nth].status != 1){
 				neighbors[nth].check_time = (long) std::chrono::duration_cast<std::chrono::milliseconds>(
 					std::chrono::system_clock::now().time_since_epoch()).count();
