@@ -424,7 +424,7 @@ int test(){
 		char *ptr = strtok(received_info, delim); 
 		if (strcmp(ptr,"TEST")==0){
 			ptr = strtok(NULL, delim);
-			if (strcmp(ptr,"JOIN")==0){
+			if (strcmp(ptr,"JOIN")==0 && myinfo.status==1){
 				join();
 				myinfo.status = 1;
 				msg = "OK";
