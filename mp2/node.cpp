@@ -223,7 +223,7 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 			sendto(server_fd, hello.c_str(), hello.length(),  
 	        	0, (const struct sockaddr *) &servaddr, 
 	            len); 
-	    	printf("Heartbeat %d sent to %d\n", n_heartbeat++, neighbors[idx].id);
+	    	// printf("Heartbeat %d sent to %d\n", n_heartbeat++, neighbors[idx].id);
 	    }
 	    std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
 	}
@@ -262,7 +262,7 @@ int monitor(){ //UDP monitor heartbeat
 	    buffer[n] = '\0'; 
 
 	    if (myinfo.status == 1){	//update only when I'm alive
-			printf("\nMonitor heartbeat from node : %s\n", buffer);
+			// printf("\nMonitor heartbeat from node : %s\n", buffer);
 	    	char delim[] = " "; char *ptr = strtok(buffer, delim); 
 			int nbr_id = stoi(ptr);
 			for (int i=0; i<NUM_NBR; i++){	//use key or hash mapping in the future
@@ -324,7 +324,7 @@ int join(){	//send JOIN to introducer
 	// }
 	string deli = " "; 
 	vector<string> nbrs = split(msg, deli);
-	cout << "nb size " << to_string(nbrs.size()) << "\n";
+	// cout << "nb size " << to_string(nbrs.size()) << "\n";
 	for(int i=0; i<NUM_NBR; i++){
 			int nth = stoi(nbrs[NUM_NBR * i + 1]);
 			neighbors[nth].id = stoi(nbrs[NUM_NBR * i + 2]);
@@ -341,9 +341,13 @@ int join(){	//send JOIN to introducer
 			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
 	}
 
+	printf("After UPDATE, the membership list is: \n");
 	for(int i = 0; i < NUM_NBR; i++) {
-		printf("Machine %d\n status: %d \n", neighbors[i].id, neighbors[i].status);
-	
+		if(neighbors[i].status == 1) {
+			printf("Machine %d : ACTIVE\n", neighbors[i].id);
+		} else {
+			printf("Machine %d : INACTIVE\n", neighbors[i].id);
+		}
 	}
 
 	/*int valread; 
@@ -441,7 +445,7 @@ int test(){
 			}
 		}
 		if (strcmp(ptr,"UPDATE")==0){
-			int nth = stoi(strtok(NULL, delim));
+			int nth = stoi(strtok(NULL, delim)) - 1;
 			int id = stoi(strtok(NULL, delim));
 			int status = stoi(strtok(NULL, delim));
 			for (nth=0; nth<4; nth++){ if (id == neighbors[nth].id){break;} }
@@ -457,10 +461,12 @@ int test(){
 			printf("neighbor_node_id %d status change to %d\n", id, status);
 			msg = "OK";
 
-			printf("Now the membership list is: \n");
+			printf("After JOIN, the membership list is: \n");
 			for(int i = 0; i < NUM_NBR; i++) {
 				if(neighbors[i].status == 1) {
-					printf("Machine %d\n", neighbors[i].id);
+					printf("Machine %d : ACTIVE\n", neighbors[i].id);
+				} else {
+					printf("Machine %d : INACTIVE\n", neighbors[i].id);
 				}
 			}
 		}
@@ -570,12 +576,28 @@ int main(int argc, char const *argv[]) {
 							send_msg(msg, introducer);
 						    printf("cmd sent %s \n ", cmd.c_str());
 						    is_changed = true;
+						    printf("UPDATE the membership list is: \n");
+							for(int i = 0; i < NUM_NBR; i++) {
+								if(neighbors[i].status == 1) {
+									printf("Machine %d : ACTIVE\n", neighbors[i].id);
+								} else {
+									printf("Machine %d : INACTIVE\n", neighbors[i].id);
+								}
+							}
 						}
 					} else{
 						if (neighbors[i].status != 1) {
 							cout << "case 2";
 							neighbors[i].status = 1;
 							is_changed = true;
+							printf("UPDATE the membership list is: \n");
+							for(int i = 0; i < NUM_NBR; i++) {
+								if(neighbors[i].status == 1) {
+									printf("Machine %d : ACTIVE\n", neighbors[i].id);
+								} else {
+									printf("Machine %d : INACTIVE\n", neighbors[i].id);
+								}
+							}
 						}
 					}
 				}
