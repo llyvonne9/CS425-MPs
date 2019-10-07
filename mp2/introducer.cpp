@@ -118,6 +118,7 @@ void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sock
 	    } 
 	   
 	    serv_addr.sin_family = AF_INET; 
+	    cout<<neighborIndex<<"\n";
 	    serv_addr.sin_port = htons(NODEPORT_BASE+neighborIndex); 
 
 
@@ -202,6 +203,8 @@ int main(int arc, char const *argv[]) {
 	    	type = LEAVE;
 	    	states.find(idx)->second = type;
 	    	updateStatus(type, idx, ips, new_server_fd, addr, states);
+	    	string msg = "OK";
+	    	send(new_server_fd, msg.c_str(), msg.length(), 0);
 	    } else if(strcmp(segment[0].c_str(), "JOIN") == 0 && ((states.find(idx) -> second) == FAIL || (states.find(idx) -> second) == LEAVE)) {
 	    	type = JOIN;
 	    	
@@ -210,6 +213,9 @@ int main(int arc, char const *argv[]) {
 	    	updateStatus(type, idx, ips, new_server_fd, addr, states);
 	    } else {
 	    	printf("The msg is Invalid");
+	    	string msg = "OK";
+	    	send(new_server_fd, msg.c_str(), msg.length(), 0);
+	    	continue;
 	    }
 
 	    // updateStatus(type, idx, new_server_fd);
