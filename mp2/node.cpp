@@ -437,10 +437,10 @@ int test(){
 			}
 			if (strcmp(ptr,"INFO")==0){
 				//string msg = to_string(-1) + '\0';
-				msg = "myinfo.id\n";
+				msg = "I'm "+to_string(myinfo.id)+". ";
 			    for (int i=0;i<NUM_NBR;i++){ 
 					//sprintf(msg, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
-					msg += "neighbors[" +to_string(i)+ "],id=" +to_string(neighbors[i].id)+ ",status=" +to_string(neighbors[i].status);
+					msg += "neighbors[" +to_string(i)+ "],id=" +to_string(neighbors[i].id)+ ",status=" +to_string(neighbors[i].status)+"\n";
 				}
 			}
 		}
