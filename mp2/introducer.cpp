@@ -13,7 +13,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
-
+#include <set>
 using namespace std;
 
 #define PORT 8081
@@ -24,6 +24,8 @@ using namespace std;
 #define FAIL -1
 #define JOIN 1
 #define LEAVE 0
+
+set<int> memList;
 
 //split a string to vector based on a delimiter
 vector<string> split (string s, string delimiter) {
@@ -84,6 +86,18 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
 
 		msg += to_string(i) + " " + to_string(neighborIndex) + " " + to_string(states.find(neighborIndex)->second) + " " + ip + " ";
 	}
+
+	string mem_list = "";
+	for(int j = 1; j <= 10; j++) {
+		int s = states.find(j) -> second;
+		if(s == 1) {
+			if(mem_list.length() == 0) mem_list += to_string(j);
+			else mem_list += " " + to_string(j);
+		}
+	}
+
+	msg += "MEMLIST " + mem_list;
+
 	printf("Sent JOIN msg %s\n", msg.c_str());
 	send(sock, msg.c_str(), msg.length(), 0);
 	printf("NEIGHBORS info sent to new join node. \n"); 

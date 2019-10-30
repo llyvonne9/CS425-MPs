@@ -14,6 +14,7 @@
 #include <chrono>
 #include <vector>
 #include <limits.h>
+#include <set>
 using namespace std;
 using namespace std::chrono;
 
@@ -46,6 +47,8 @@ struct server_para introducer;
 struct server_para *neighbors;
 int wait_time = 8000; //ms can use 80 for emulating msg loss
 int heartbeat_time = wait_time/8;
+set<int> membership_list;
+set<int> neighbor_set;
 
 
 //Connect using hotname. The sock will be used to send message
@@ -195,7 +198,19 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 			char received_info[BUFFER_SIZE] = {0}; 
 			int n; socklen_t len = sizeof(servaddr);
 	    	
-			string hello = to_string(myinfo.id)+" "+to_string(n_heartbeat);
+			// string hello = to_string(myinfo.id) + " " + to_string(n_heartbeat);
+			string hello = to_string(myinfo.id);
+
+			string mem_list = "";
+			set<int>::iterator it;
+			for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+				mem_list += " " + to_string(*it);
+			}
+
+			hello += " MEMLIST" + mem_list;
+
+			// printf("heartbeat info: %s\n", hello.c_str());
+
 			sendto(server_fd, hello.c_str(), hello.length(),  
 	        	0, (const struct sockaddr *) &servaddr, 
 	            len); 
@@ -240,8 +255,14 @@ int monitor(){ //UDP monitor heartbeat
 
 	    if (myinfo.status == 1){	//update only when I'm alive
 			// printf("\nMonitor heartbeat from node : %s\n", buffer);
-	    	char delim[] = " "; char *ptr = strtok(buffer, delim); 
-			int nbr_id = stoi(ptr);
+	    	char delim[] = " "; 
+	    	string buffer_str = buffer;
+	    	string del = " ";
+	    	vector<string> v = split(buffer_str, del);
+	    	// cout << "Received heartbeat info" << buffer << " " << v.size() << "\n";
+	  //   	char *ptr = strtok(buffer, delim); 
+			// int nbr_id = stoi(ptr);
+			int nbr_id = stoi(v[0]);
 			for (int i=0; i<NUM_NBR; i++){	//use key or hash mapping in the future
 				if (neighbors[i].id==nbr_id){
 					//cout << "in this if \n";
@@ -250,6 +271,30 @@ int monitor(){ //UDP monitor heartbeat
 					break;
 				}
 			}
+			set<int> tmp_mem_list;
+			for (int i = 2; i < v.size(); i++) {
+		        tmp_mem_list.insert(stoi(v[i]));
+		    }
+		    vector<int> diff_set(20);
+		    auto iter= set_symmetric_difference(membership_list.begin(), membership_list.end(), tmp_mem_list.begin(), tmp_mem_list.end(), diff_set.begin());
+		    diff_set.resize(iter-diff_set.begin());
+		    // printf("Diff set size %lu\n", diff_set.size());
+		    membership_list = tmp_mem_list;
+		    membership_list.insert(myinfo.id);
+		    for(int i = 0; i < NUM_NBR; i++) {
+		    	// cout << neighbors[i].id;
+		    	if(neighbors[i].status == 1) membership_list.insert(neighbors[i].id);
+		    	else membership_list.erase(neighbors[i].id);
+		    }
+		    if(diff_set.size() != 0) {
+		    	printf("UPDATE the membership list is: \n");
+				set<int>::iterator it;
+				for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+					printf("Machine %d \n", *it);
+				}
+		    }
+		    
+
 		}
 
 	}  
@@ -302,14 +347,22 @@ int join(){
 			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
 	}
 
-	printf("After UPDATE, the membership list is: \n");
-	for(int i = 0; i < NUM_NBR; i++) {
-		if(neighbors[i].status == 1) {
-			printf("Machine %d : ACTIVE\n", neighbors[i].id);
-		} else {
-			printf("Machine %d : INACTIVE\n", neighbors[i].id);
-		}
+	printf("After UPDATE, the membership list including: \n");
+	// for(int i = 0; i < NUM_NBR; i++) {
+	// 	if(neighbors[i].status == 1) {
+	// 		printf("Machine %d : ACTIVE\n", neighbors[i].id);
+	// 	} else {
+	// 		printf("Machine %d : INACTIVE\n", neighbors[i].id);
+	// 	}
+	// }
+		
+	for(int i = NUM_NBR * 4 + 2; i < nbrs.size(); i++) {
+		// if(stoi(nbrs[i]) == myinfo.id) continue;
+		membership_list.insert(stoi(nbrs[i]));
+		printf("Machine %s\n", nbrs[i].c_str());
 	}
+
+	printf("membershipList contains %lu machines\n", membership_list.size());
 
 	return 0;
 }
@@ -407,13 +460,13 @@ int test(){
 			printf("neighbor_node_id %d status change to %d\n", id, status);
 			msg = "OK";
 
-			printf("After JOIN, the membership list is: \n");
-			for(int i = 0; i < NUM_NBR; i++) {
-				if(neighbors[i].status == 1) {
-					printf("Machine %d : ACTIVE\n", neighbors[i].id);
-				} else {
-					printf("Machine %d : INACTIVE\n", neighbors[i].id);
-				}
+			if(status == 1) membership_list.insert(id);
+			else membership_list.erase(id);
+
+			printf("UPDATE the membership list is: %lu \n", membership_list.size());
+			set<int>::iterator it;
+			for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+				printf("Machine %d \n", *it);
 			}
 		}
 		send(new_server_fd, msg.c_str(), msg.length(), 0);
@@ -456,8 +509,18 @@ int intro_update(int sock){
 				strtok(NULL, delim);
 				int status = stoi(strtok(NULL, delim));
 				neighbors[nth].status = status;
+
 			}
 		}
+	}
+	return 0;
+}
+
+int printMembershipList() {
+	printf("UPDATE the membership list is: \n");
+	set<int>::iterator it;
+	for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+		printf("Machine %d", *it);
 	}
 	return 0;
 }
@@ -474,9 +537,6 @@ int main(int argc, char const *argv[]) {
     //int sock;
     int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
-
-    char hostname[HOST_NAME_MAX];
-	cout << "This is machine " << to_string(myinfo.id) << "\n";
     
     //*** For texture Hostname
     //if (connect_by_host(sock, introducer, SOCK_STREAM)<0){
@@ -518,6 +578,7 @@ int main(int argc, char const *argv[]) {
 							cout<<cur_time<<" "<<neighbors[i].check_time<<" "<<cur_time - neighbors[i].check_time<<" "<<wait_time<<"\n";
 							cout << "case 1";
 							neighbors[i].status = -1;
+							membership_list.erase(neighbors[i].id);
 							//string cmd = "LEAVE_"+id+"_"+i;
 							char tmp[32] = {};
 							sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
@@ -527,12 +588,9 @@ int main(int argc, char const *argv[]) {
 						    printf("cmd sent %s \n ", cmd.c_str());
 						    is_changed = true;
 						    printf("UPDATE the membership list is: \n");
-							for(int i = 0; i < NUM_NBR; i++) {
-								if(neighbors[i].status == 1) {
-									printf("Machine %d : ACTIVE\n", neighbors[i].id);
-								} else {
-									printf("Machine %d : INACTIVE\n", neighbors[i].id);
-								}
+							set<int>::iterator it;
+							for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+								printf("Machine %d", *it);
 							}
 						}
 					} else{
@@ -540,15 +598,14 @@ int main(int argc, char const *argv[]) {
 						if (neighbors[i].status != 1) {
 							cout << "case 2";
 							neighbors[i].status = 1;
+							membership_list.insert(neighbors[i].id);
 							is_changed = true;
 							printf("UPDATE the membership list is: \n");
-							for(int i = 0; i < NUM_NBR; i++) {
-								if(neighbors[i].status == 1) {
-									printf("Machine %d : ACTIVE\n", neighbors[i].id);
-								} else {
-									printf("Machine %d : INACTIVE\n", neighbors[i].id);
-								}
+							set<int>::iterator it;
+							for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+								printf("Machine %d \n", *it);
 							}
+							
 						}
 					}
 				}
