@@ -22,9 +22,12 @@ using namespace std::chrono;
 #define BUFFER_SIZE 10240
 #define QUEUE_SIZE 10
 #define PORT_INTRO 8081
+#define PORT_MASTER 8090
 #define PORT_HB 8100
 #define PORT_TEST 8200
+#define PORT_FILE 8300
 #define NUM_NBR 4
+#define REPLICA 4
 
 //Server parameters to assign and to print
 struct server_para {
@@ -46,13 +49,14 @@ string log_name = "vm";
 
 struct server_para myinfo;
 struct server_para introducer;
+struct server_para master;
 struct server_para *neighbors;
 int wait_time = 8000; //ms can use 80 for emulating msg loss
 int heartbeat_time = wait_time/8;
 int heartbeat_when_join = 0;
 set<int> membership_list;
 map<int, int> mem_hb_map;
-
+set<string> local_file_set;
 
 //Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server, int socktype){   
@@ -419,6 +423,204 @@ int leave(){
     return 0;
 }
 
+bool check_file_exists(map<int, set<int>> file_map, string file_name) {
+	if(file_map.find(file_name) == file_map.end()) return false;
+	else return true;
+}
+
+int master() {
+	//struct
+	map<string, set<int>> file_map;
+	map<string, int> file_timestamp;
+	int server_fd, new_server_fd;
+	struct sockaddr_in addr;
+	string delimiter = "_";
+	
+	int read_received_message;
+    int addrlen = sizeof(addr); 
+
+	server_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(server_fd == 0) {
+		perror("[Error]: Fail to create socket");
+		exit(1);
+	}
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = htons(PORT_MASTER);
+
+	//bind socket to the address
+	if(::bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("[Error]: Fail to bind to address");
+		exit(1);
+	}
+
+	while(true) {
+		if(master.id == myinfo.id) {
+			char received_info[BUFFER_SIZE] = {0}; 
+			if(listen(server_fd, QUEUE_SIZE) < 0) {
+				perror("[Error]: Fail to listen to incoming connections");
+				exit(1);
+			}
+			new_server_fd = accept(server_fd, (struct sockaddr *)&addr, (socklen_t*)&addrlen);
+			if(new_server_fd < 0) {
+				perror("[Error]: Fail to accept to incoming connections");
+				exit(1);
+			}
+			read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
+			printf("\nThe order received is: %s\n", received_info);
+			vector<string> received_info_vec = split(received_info, " ");
+			string msg = "";
+			if(strcmp(received_info_vec[0], "GET") == 0) {
+				string file_name = received_info_vec[1];
+				string msg = "";
+				if(!check_file_exists(file_name)) {
+					msg = "-1";
+				} else {
+					msg = *(file_map[file_name]).begin();;
+				}
+				
+
+			} else if(strcmp(received_info[0], "PUT") == 0) {
+				if(!check_file_exists(file_map, file_name)) {
+					for(int i = 0; i < REPLICA; i++) {
+						set<int> nodes;
+						nodes.insert(next_id);
+						next_id++;
+						if(i > 0) msg += " " + to_string(next_id);
+						else msg = to_string(next_id);
+					}
+				} else {
+					//confirmation about update
+					//update
+				}
+			} else if(strcmp(received_info[0], "DELETE") == 0) {
+				if(!check_file_exists(file_map, file_name)) {
+
+				} else {
+					//confirmation about update
+					//update
+				}
+			}
+
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			close(new_server_fd);
+		}
+
+	}
+}
+
+int delete_file(file_name) {
+	if(remove(file_name) != 0)
+   		perror( "Error deleting file" );
+  	else
+    	printf("File %s is deleted successfully. \n", file_name);
+}
+
+int send_file(file_name) {
+	int server_fd, new_server_fd;
+	struct sockaddr_in addr;
+	int next_id = 1;
+	
+	string result;
+	int read_received_message;
+    int addrlen = sizeof(addr); 
+
+	server_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(server_fd == 0) {
+		perror("[Error]: Fail to create socket");
+		exit(1);
+	}
+
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = INADDR_ANY;
+	addr.sin_port = htons(PORT);
+
+	//bind socket to the address
+	if(bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("[Error]: Fail to bind to address");
+		exit(1);
+	}
+
+	char received_info[BUFFER_SIZE] = {0}; 
+	if(listen(server_fd, QUEUE_SIZE) < 0) {
+		perror("[Error]: Fail to listen to incoming connections");
+		exit(1);
+	}
+	new_server_fd = accept(server_fd, (struct sockaddr *)&addr, (socklen_t*)&addrlen);
+	if(new_server_fd < 0) {
+		perror("[Error]: Fail to accept to incoming connections");
+		exit(1);
+	}
+
+	//read the request
+	read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
+	printf("\nThe order received is: %s\n", received_info);
+
+	vector<string> received_vector = split(received_info, " ");
+
+	string file_name = received_info[1];
+	FILE *fp = fopen(file_name, "rb");
+	char buffer[BUFFER_SIZE];
+	if(fp == NULL) {
+		printf("File %s not found.\n", file_name);
+	} else {
+		bzero(buffer, BUFFER_SIZE);
+		int length = 0;
+		while((length = fread(buffer, sizeof(char), BUFFER_SIZE, fp)) > 0) {
+			if(send(new_server_fd, buffer, length, 0) < 0) {
+				printf("Send %s failed\n", file_name);
+				break;
+			}
+			bzero(buffer, BUFFER_SIZE);
+		}
+		fclose(fp);
+		printf("Transfer Successfully. \n");
+		close(new_server_fd);
+	}
+	return 0;
+}
+
+int get(string target_file, string dir) {
+	// to master
+	string msg = "GET ";
+	send_msg(msg, master);
+	int id = stoi(msg); 
+
+	//to node
+
+	msg = "GET " + target_file;
+
+	int valread; 
+	int sock;
+    char recv_info[BUFFER_SIZE] = {0}; 
+
+    struct sockaddr_in serv_addr; 	
+	init_socket_para(serv_addr, serverlist[id].addr.c_str(), serverlist[id].port);
+    if (connect_socket(sock, serv_addr)<0){membership_list.find(id) == membership_list.end(); return -1;}
+
+    send(sock, msg.c_str(), msg.length(), 0);
+    printf("cmd sent %s \n ", msg.c_str());
+
+	char buffer[BUFFER_SIZE] = {0}; 
+	string res = "";
+    ofstream myfile;
+    ofstream outfile (dir + "/" + target_file);
+    myfile.open (dir + "/" + target_file, ios::app);
+    while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
+        if (valread < BUFFER_SIZE-1){
+            buffer[valread] = '\0';
+        }
+        res += buffer;
+        
+    }
+    myfile << res;
+    printf("GET finished. Total received bytes: %lu", res.length());
+    cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
+    myfile.close();
+
+}
+
 //listen to test command
 int test(){
 	int server_fd;
@@ -483,6 +685,13 @@ int test(){
 					//sprintf(msg, "neighbors[%d],id=%d,status=%d", i, neighbors[i].id,neighbors[i].status);
 					msg += "neighbors[" +to_string(i)+ "],id=" +to_string(neighbors[i].id)+ ",status=" +to_string(neighbors[i].status)+"\n";
 				}
+			}
+			if(strcmp(ptr, "GET") == 0) {
+				ptr = strtok(NULL, delim);
+				string target_file = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string dir = (string) ptr;
+				get(target_file, dir);
 			}
 		}
 		//if introducer sent update information about its neighbor
@@ -570,6 +779,23 @@ int printMembershipList() {
 		printf("Machine %d \n", *it);
 	}
 	return 0;
+}
+
+int getServers() {
+	ifstream fin("servers.txt"); 
+    const int LINE_LENGTH = 100; 
+    char str[LINE_LENGTH];  
+    int line = 0;
+    while( fin.getline(str,LINE_LENGTH) && line < 10) {    
+        vector<string> v = split(str, " ");
+        serverlist[line + 1].id = stoi(v[0]);
+        serverlist[line + 1].ip = v[1];
+        serverlist[line + 1].hostname = v[2];
+        serverlist[line + 1].port = PORT_FILE + stoi(v[0]);
+        // printf("id ip %d %s\n", stoi(v[0]), v[1].c_str());
+        line++;
+    }
+    return 0;
 }
 
 int main(int argc, char const *argv[]) {

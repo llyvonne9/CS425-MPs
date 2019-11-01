@@ -144,7 +144,11 @@ int init_para(int argc, char const *argv[]){
         cmd = "TEST "+(string) argv[2];
     } else {
         node.addr = (string) argv[2];
-        cmd = "TEST "+(string) argv[3];
+        string action = (string) argv[3];
+        if(strcmp(action, "JOIN") == 0 || strcmp(action, "LEAVE") == 0) cmd = "TEST "+ action;
+        else if(strcmp(action, "GET") == 0) {
+            cmd = "TEST " + (string) argv[4] + " " + (string) argv[5];
+        }
     }
     return 0;
 }
@@ -158,7 +162,7 @@ int main(int argc, char const *argv[]) {
     while( fin.getline(str,LINE_LENGTH) && line < 10) {    
         vector<string> v = split(str, " ");
         id_to_ip.insert({stoi(v[0]), v[1]});
-        printf("id ip %d %s\n", stoi(v[0]), v[1].c_str());
+        // printf("id ip %d %s\n", stoi(v[0]), v[1].c_str());
         line++;
     }
     cout << "pass";
