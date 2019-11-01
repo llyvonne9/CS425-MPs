@@ -1,0 +1,12 @@
+1 172.22.154.145 fa19-cs425-g44-01.cs.illinois.edu 8080
+2 172.22.156.145 fa19-cs425-g44-02.cs.illinois.edu 8080
+3 172.22.152.150 fa19-cs425-g44-03.cs.illinois.edu 8080
+4 172.22.154.146 fa19-cs425-g44-04.cs.illinois.edu 8080
+5 172.22.156.146 fa19-cs425-g44-05.cs.illinois.edu 8080
+6 172.22.152.151 fa19-cs425-g44-06.cs.illinois.edu 8080
+7 172.22.154.147 fa19-cs425-g44-07.cs.illinois.edu 8080
+8 172.22.156.147 fa19-cs425-g44-08.cs.illinois.edu 8080
+9 172.22.152.152 fa19-cs425-g44-09.cs.illinois.edu 8080
+10 172.22.154.148 fa19-cs425-g44-10.cs.illinois.edu 8080
+
+
