@@ -70,11 +70,11 @@ map<int, string> getIPs (string delimiter) {
 }
 
 //introduce neighbors to a node when it joins
-void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> states, int sock, struct sockaddr_in &serv_addr) {
+void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> states, int sock, struct sockaddr_in &serv_addr, map<int, int> hb_states) {
 	int nbIdx[4] = {-2, -1, 1, 2};
     char buffer[1024] = {0}; 
     int valread;
-    printf("The new join node's ip : %s\n", (ips.find(idx)->second).c_str());
+    printf("The new join node's ip : %s\n with %d heartbeat before \n", (ips.find(idx)->second).c_str(), hb_states.find(idx) -> second);
 
 	string msg = "NEIGHBORS ";
 	for(int i = 0; i < 4; i++) {
@@ -96,7 +96,7 @@ void introduceNeighbors(int type, int idx, map<int, string> ips, map<int, int> s
 		}
 	}
 
-	msg += "MEMLIST " + mem_list;
+	msg += "MEMLIST " + mem_list + " " + to_string(hb_states.find(idx) -> second);
 
 	printf("Sent JOIN msg %s\n", msg.c_str());
 	send(sock, msg.c_str(), msg.length(), 0);
@@ -156,6 +156,7 @@ void updateStatus(int type, int idx, map<int, string> ips, int sock, struct sock
 
 int main(int arc, char const *argv[]) {
 	map<int, int> states;
+	map<int, int> heartbeat_status;
 	int server_fd, new_server_fd;
 	struct sockaddr_in addr;
 	string delimiter = "_";
@@ -183,10 +184,12 @@ int main(int arc, char const *argv[]) {
 
 	for(int i = 1; i < 11; i++) {
 		states.insert(std::make_pair(i, LEAVE));
+		heartbeat_status.insert({ i, 0 }); 
 	}
 
 	string d = " ";
     getIPs(d);
+
 	while(true){
 		char received_info[BUFFER_SIZE] = {0}; 
 		if(listen(server_fd, QUEUE_SIZE) < 0) {
@@ -212,7 +215,12 @@ int main(int arc, char const *argv[]) {
 	    if(strcmp(segment[0].c_str(), "FAIL") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = FAIL;
 	    	int failIdx = stoi(segment[2]);
+	    	int hb_times = stoi(segment[3]);
 	    	states.find(failIdx)->second = type;
+	    	
+	    	if((heartbeat_status.find(failIdx) -> second) < hb_times) {
+	    		heartbeat_status.find(failIdx) -> second = hb_times;
+	    	}
 	    	// updateStatus(type, failIdx, ips, new_server_fd, addr, states);
 	    } else if(strcmp(segment[0].c_str(), "LEAVE") == 0 && (states.find(idx) -> second) == JOIN) {
 	    	type = LEAVE;
@@ -224,7 +232,7 @@ int main(int arc, char const *argv[]) {
 	    	type = JOIN;
 	    	
 		    states.find(idx)->second = type;
-	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr);
+	    	introduceNeighbors(type, idx, ips, states, new_server_fd, addr, heartbeat_status);
 	    	updateStatus(type, idx, ips, new_server_fd, addr, states);
 	    } else {
 	    	// If user sends invalid command like join twice or leave when it is inactive

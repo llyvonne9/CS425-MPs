@@ -15,6 +15,7 @@
 #include <vector>
 #include <limits.h>
 #include <set>
+#include <map>
 using namespace std;
 using namespace std::chrono;
 
@@ -35,6 +36,7 @@ struct server_para {
     int id = -1;
     int status = 0;
     int sock = -1;
+    int hb_times = 0;
 };
 
 int num_server = 0;
@@ -47,8 +49,9 @@ struct server_para introducer;
 struct server_para *neighbors;
 int wait_time = 8000; //ms can use 80 for emulating msg loss
 int heartbeat_time = wait_time/8;
+int heartbeat_when_join = 0;
 set<int> membership_list;
-set<int> neighbor_set;
+map<int, int> mem_hb_map;
 
 
 //Connect using hotname. The sock will be used to send message
@@ -162,6 +165,8 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 	int read_status;
     int addrlen = sizeof(servaddr); 
 
+    int n_heartbeat = heartbeat_when_join;
+
 	server_fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if(server_fd == 0) {
 		perror("[Error]: Fail to create socket");
@@ -173,7 +178,6 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
     // Filling server information
 	servaddr.sin_family = AF_INET; //IPv4
 
-	int n_heartbeat = 0;
 	//keep listen to request
 
 	//int maxN=1, cc [maxN], tmpc[maxN]; float msg_loss_rate = 0.3; srand( time( NULL ) ); //for msg loss emulation
@@ -181,7 +185,7 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 	while(true){
 
 		if (myinfo.status== 1 && neighbors[idx].status == 1){
-
+			if(n_heartbeat == 0 && heartbeat_when_join != 0) n_heartbeat = heartbeat_when_join;
 			//for msg loss emulation
 			/*for (int i=0; i<maxN; i++){
 			double r = ((double) rand() / (RAND_MAX)); //emulate msg loss
@@ -198,13 +202,17 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 			char received_info[BUFFER_SIZE] = {0}; 
 			int n; socklen_t len = sizeof(servaddr);
 	    	
-			// string hello = to_string(myinfo.id) + " " + to_string(n_heartbeat);
-			string hello = to_string(myinfo.id);
+			string hello = to_string(myinfo.id) + " " + to_string(n_heartbeat);
+			// string hello = to_string(myinfo.id);
 
 			string mem_list = "";
-			set<int>::iterator it;
-			for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
-				mem_list += " " + to_string(*it);
+			// set<int>::iterator it;
+			// for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+			// 	mem_list += " " + to_string(*it) + " " + to_string(mem_hb_map.find(*));
+			// }
+			for(int i = 1; i < 11; i++) {
+				int st = membership_list.find(i) != membership_list.end()? 1: -1;
+				mem_list += " " + to_string(i) + " " + to_string(mem_hb_map.find(i)->second) + " " + to_string(st);
 			}
 
 			hello += " MEMLIST" + mem_list;
@@ -214,6 +222,8 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 			sendto(server_fd, hello.c_str(), hello.length(),  
 	        	0, (const struct sockaddr *) &servaddr, 
 	            len); 
+
+			n_heartbeat++;
 	    }
 	    std::this_thread::sleep_for(std::chrono::milliseconds(heartbeat_time));
 	}
@@ -263,30 +273,51 @@ int monitor(){ //UDP monitor heartbeat
 	  //   	char *ptr = strtok(buffer, delim); 
 			// int nbr_id = stoi(ptr);
 			int nbr_id = stoi(v[0]);
+			int nth_heartbeat = stoi(v[1]);
+			mem_hb_map.find(nbr_id)->second = nth_heartbeat;
 			for (int i=0; i<NUM_NBR; i++){	//use key or hash mapping in the future
 				if (neighbors[i].id==nbr_id){
 					//cout << "in this if \n";
 					neighbors[i].check_time = std::chrono::duration_cast<std::chrono::milliseconds>(
 						std::chrono::system_clock::now().time_since_epoch()).count();
+					neighbors[i].hb_times = nth_heartbeat;
 					break;
 				}
 			}
+			// printf("Received heartbeat %s\n", buffer_str.c_str());
 			set<int> tmp_mem_list;
-			for (int i = 2; i < v.size(); i++) {
-		        tmp_mem_list.insert(stoi(v[i]));
+			bool need_update = false;
+			for (int i = 3; i < v.size(); i += 3) {
+		        int cur_id = (stoi(v[i]));
+		        int cur_hb = (stoi(v[i + 1]));
+		        int cur_status = (stoi(v[i + 2]));
+		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
+		        	mem_hb_map.find(cur_id)->second = cur_hb;
+		        	if(cur_status == 1 && membership_list.find(cur_id) == membership_list.end()) {
+		        		printf("Add %d after received a heartbeat", cur_id);
+		        		membership_list.insert(cur_id);
+		        		need_update = true;
+		        	}
+		        	if(cur_status == -1 && membership_list.find(cur_id) != membership_list.end()) {
+		        		printf("Remove %d after received a heartbeat", cur_id);
+		        		membership_list.erase(cur_id);
+		        		need_update = true;
+		        	}
+		        }
+
 		    }
-		    vector<int> diff_set(20);
-		    auto iter= set_symmetric_difference(membership_list.begin(), membership_list.end(), tmp_mem_list.begin(), tmp_mem_list.end(), diff_set.begin());
-		    diff_set.resize(iter-diff_set.begin());
-		    // printf("Diff set size %lu\n", diff_set.size());
-		    membership_list = tmp_mem_list;
-		    membership_list.insert(myinfo.id);
-		    for(int i = 0; i < NUM_NBR; i++) {
-		    	// cout << neighbors[i].id;
-		    	if(neighbors[i].status == 1) membership_list.insert(neighbors[i].id);
-		    	else membership_list.erase(neighbors[i].id);
-		    }
-		    if(diff_set.size() != 0) {
+		    // vector<int> diff_set(20);
+		    // auto iter= set_symmetric_difference(membership_list.begin(), membership_list.end(), tmp_mem_list.begin(), tmp_mem_list.end(), diff_set.begin());
+		    // diff_set.resize(iter-diff_set.begin());
+		    // // printf("Diff set size %lu\n", diff_set.size());
+		    // membership_list = tmp_mem_list;
+		    // membership_list.insert(myinfo.id);
+		    // for(int i = 0; i < NUM_NBR; i++) {
+		    // 	// cout << neighbors[i].id;
+		    // 	if(neighbors[i].status == 1) membership_list.insert(neighbors[i].id);
+		    // 	else membership_list.erase(neighbors[i].id);
+		    // }
+		    if(need_update) {
 		    	printf("UPDATE the membership list is: \n");
 				set<int>::iterator it;
 				for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
@@ -307,6 +338,9 @@ int init_para(int argc, char const *argv[]){
 	introducer.port = PORT_INTRO;
 	if (argc > 2){
 		introducer.addr = (string) argv[2];
+	} else {
+		introducer.addr = "172.22.154.145";
+		// introducer.addr = "127.0.0.1";
 	}
 	if (argc > 1){
 		try {
@@ -328,6 +362,8 @@ int join(){
 	string msg = "JOIN_"+to_string(myinfo.id);
 	send_msg(msg, introducer);
 
+	printf("Msg after join %s\n", msg.c_str());
+
 	string deli = " "; 
 	vector<string> nbrs = split(msg, deli);
 	// cout << "nb size " << to_string(nbrs.size()) << "\n";
@@ -347,7 +383,9 @@ int join(){
 			cout<<nth<<" "<<neighbors[nth].id<<" "<< neighbors[nth].status <<" "<<neighbors[nth].addr<<"\n";
 	}
 
-	printf("After UPDATE, the membership list including: \n");
+
+
+	printf("After JOIN, the membership list including: \n");
 	// for(int i = 0; i < NUM_NBR; i++) {
 	// 	if(neighbors[i].status == 1) {
 	// 		printf("Machine %d : ACTIVE\n", neighbors[i].id);
@@ -355,14 +393,19 @@ int join(){
 	// 		printf("Machine %d : INACTIVE\n", neighbors[i].id);
 	// 	}
 	// }
-		
-	for(int i = NUM_NBR * 4 + 2; i < nbrs.size(); i++) {
+	membership_list.clear();
+
+	for(int i = NUM_NBR * 4 + 2; i < nbrs.size() - 1; i++) {
 		// if(stoi(nbrs[i]) == myinfo.id) continue;
 		membership_list.insert(stoi(nbrs[i]));
+		if(mem_hb_map.find(stoi(nbrs[i]))->second == -1) mem_hb_map.find(stoi(nbrs[i]))->second = 0;
 		printf("Machine %s\n", nbrs[i].c_str());
 	}
 
 	printf("membershipList contains %lu machines\n", membership_list.size());
+
+	heartbeat_when_join = stoi(nbrs[nbrs.size() - 1]);
+
 
 	return 0;
 }
@@ -460,8 +503,12 @@ int test(){
 			printf("neighbor_node_id %d status change to %d\n", id, status);
 			msg = "OK";
 
-			if(status == 1) membership_list.insert(id);
-			else membership_list.erase(id);
+			if(status == 1) {
+				membership_list.insert(id);
+			} else {
+				membership_list.erase(id);
+			}
+			mem_hb_map.find(id) -> second = mem_hb_map.find(id) -> second + 1;
 
 			printf("UPDATE the membership list is: %lu \n", membership_list.size());
 			set<int>::iterator it;
@@ -520,13 +567,12 @@ int printMembershipList() {
 	printf("UPDATE the membership list is: \n");
 	set<int>::iterator it;
 	for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
-		printf("Machine %d", *it);
+		printf("Machine %d \n", *it);
 	}
 	return 0;
 }
 
 int main(int argc, char const *argv[]) {
-	
 	
 	//Set id
 	init_para(argc, argv);
@@ -544,7 +590,10 @@ int main(int argc, char const *argv[]) {
     //    return -1;
     //}
     //cout<<"introducer"<<<<": "<<introducer.hostname<<":"<introducer.port<<"\n";
-
+    for(int i = 0; i < 10; i++) {
+    	if(i != myinfo.id) mem_hb_map.insert({i, -1});
+    	else mem_hb_map.insert({i, myinfo.status});
+    }
 
 	//According the test to change myinfo status & accept intro info
 	thread thread_test;
@@ -553,6 +602,7 @@ int main(int argc, char const *argv[]) {
 
 	//Send heartbeat to neighbors (UDP)
 	thread thread_HBs[NUM_NBR];
+
     for (int i=0;i<NUM_NBR;i++){ 
 		thread_HBs[i] = thread(heartbeat, i);
 	}
@@ -579,18 +629,19 @@ int main(int argc, char const *argv[]) {
 							cout << "case 1";
 							neighbors[i].status = -1;
 							membership_list.erase(neighbors[i].id);
+							mem_hb_map.find(neighbors[i].id) -> second = mem_hb_map.find(neighbors[i].id) -> second + 1;
 							//string cmd = "LEAVE_"+id+"_"+i;
 							char tmp[32] = {};
-							sprintf(tmp,"FAIL_%d_%d",myinfo.id,neighbors[i].id);
+							sprintf(tmp, "FAIL_%d_%d_%d", myinfo.id, neighbors[i].id, neighbors[i].hb_times);
 						    //send(introducer.sock, (const char *)tmp, strlen(tmp), 0);
 							string msg = (string) tmp;
 							send_msg(msg, introducer);
 						    printf("cmd sent %s \n ", cmd.c_str());
 						    is_changed = true;
-						    printf("UPDATE the membership list is: \n");
+						    printf("UPDATE the membership list (size: %lu) is: \n", membership_list.size());
 							set<int>::iterator it;
 							for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
-								printf("Machine %d", *it);
+								printf("Machine %d \n", *it);
 							}
 						}
 					} else{

@@ -12,6 +12,9 @@
 #include <algorithm>
 #include <cstdio>
 #include <chrono>
+#include <map>
+#include <vector>
+#include <string>
 using namespace std;
 using namespace std::chrono;
 
@@ -36,6 +39,8 @@ struct server_para {
 
 struct server_para node;
 string cmd;
+string id_ip_file = "servers.txt";
+map<int, string> id_to_ip;
 
 //Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server, int socktype){   
@@ -73,6 +78,8 @@ int connect_by_host(int &sock, server_para &server, int socktype){
     return sock;
 }
 
+
+
 //Initialize network parameters with IPV4 adress
 int init_socket_para(struct sockaddr_in &serv_addr, const char *addr, int port){  
     
@@ -108,21 +115,53 @@ int connect_socket(int &sock, struct sockaddr_in &serv_addr){
     return sock;
 }
 
-//Set parameters that read from command line and file
-int init_para(int argc, char const *argv[]){
-    if (argc != 3){
-        printf("use paramer: id ip command(JOIN/LEAVE/INFO)");
+vector<string> split (string s, string delimiter) {
+    size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+    string token;
+    vector<string> res;
+
+    while ((pos_end = s.find (delimiter, pos_start)) != string::npos) {
+        token = s.substr (pos_start, pos_end - pos_start);
+        pos_start = pos_end + delim_len;
+        res.push_back (token);
     }
 
-    node.port = PORT_TEST + stoi(argv[1]);
-    node.addr = (string) argv[2];
-    cmd = "TEST "+(string) argv[3];
+    res.push_back (s.substr (pos_start));
+    return res;
+}
 
+//Set parameters that read from command line and file
+int init_para(int argc, char const *argv[]){
+    if (argc != 3 && argc != 4){
+        printf("use paramer: id (ip) command(JOIN/LEAVE/INFO)");
+    }
+    node.port = PORT_TEST + stoi(argv[1]);
+    // node.addr = (string) argv[2];
+    // cmd = "TEST "+(string) argv[3];
+    printf("argc %d\n", argc);
+    if(argc < 4) {
+        node.addr = id_to_ip.find(stoi(argv[1]))->second;
+        cmd = "TEST "+(string) argv[2];
+    } else {
+        node.addr = (string) argv[2];
+        cmd = "TEST "+(string) argv[3];
+    }
     return 0;
 }
 
 int main(int argc, char const *argv[]) {
-    //Set id
+
+    ifstream fin(id_ip_file); 
+    const int LINE_LENGTH = 100; 
+    char str[LINE_LENGTH];  
+    int line = 0;
+    while( fin.getline(str,LINE_LENGTH) && line < 10) {    
+        vector<string> v = split(str, " ");
+        id_to_ip.insert({stoi(v[0]), v[1]});
+        printf("id ip %d %s\n", stoi(v[0]), v[1].c_str());
+        line++;
+    }
+    cout << "pass";
     init_para(argc, argv);
 
     //Connect to Introducer
