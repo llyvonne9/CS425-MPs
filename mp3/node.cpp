@@ -542,7 +542,7 @@ int master() {
 					if((cur_time - file_map[file_name].timestamp) < MIN_UPDATE_DURATION ) {
 						string update_confirm_msg = "LESS1MIN";
 						send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
-												struct pollfd fd;
+						struct pollfd fd;
 						int ret;
 						fd.fd = new_server_fd; //  socket handler 
 						fd.events = POLLIN;
@@ -559,10 +559,20 @@ int master() {
 						    default:
 						        recv(new_server_fd,received_info,sizeof(received_info), 0); // get  data
 						        update_confirm_msg = received_info;
-						        
-						        
+						        break;
+						        // add 4 nodes to update_confirm_msg and send back
 
 						        break;
+						}
+						printf("\nThe order received is: %s\n", received_info);
+
+
+					} else {
+						string replicas = "";
+						set<int>::iterator it;
+						for(it = file_map.begin(); it!=file_map.end(); it++)  {
+							if(replicas.length() == 0) replicas += it;
+							else replicas += " " + it;
 						}
 						printf("\nThe order received is: %s\n", received_info);
 
@@ -777,10 +787,10 @@ int put(string target_file) {
 			cin >> YESNO;
 		}
 		send_msg(YESNO, master);
-		if (YESNO == "NO"){
+		if (YESNO == "NO"){	//either timeout or cin is NO.
 			return 0;
 		} else{
-			ptr = strtok(msg.c_str(), delim); 
+			ptr = strtok(NULL, delim); 
 		}
 	}
 	ids = [stoi(ptr), stoi(strtok(NULL,delim)), stoi(strtok(NULL,delim))]; //3 other copies, revise this later
