@@ -511,8 +511,11 @@ int master() {
 				if(!check_file_exists(file_map, file_name)) {
 
 				} else {
-					//confirmation about update
-					//update
+					for (auto ele: file_map[file_name]){
+						msg = "DELETE "+file_name
+						send_msg(msg, serverlist[id]);
+					}
+					msg = "OK";
 				}
 			}
 
@@ -536,7 +539,7 @@ int delete_file(file_name) {
 	return 1;
 }
 
-int send_file(file_name) {
+int file_server(file_name) {
 	int server_fd, new_server_fd;
 	struct sockaddr_in addr;
 	int next_id = 1;
@@ -572,30 +575,39 @@ int send_file(file_name) {
 		exit(1);
 	}
 
-	//read the request
-	read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-	printf("\nThe order received is: %s\n", received_info);
+	while(true){
+		//read the request
+		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
+		printf("\nThe order received is: %s\n", received_info);
+		vector<string> received_vector = split(received_info, " ");
+		string file_name = received_info[1];
 
-	vector<string> received_vector = split(received_info, " ");
-
-	string file_name = received_info[1];
-	FILE *fp = fopen(file_name, "rb");
-	char buffer[BUFFER_SIZE];
-	if(fp == NULL) {
-		printf("File %s not found.\n", file_name);
-	} else {
-		bzero(buffer, BUFFER_SIZE);
-		int length = 0;
-		while((length = fread(buffer, sizeof(char), BUFFER_SIZE, fp)) > 0) {
-			if(send(new_server_fd, buffer, length, 0) < 0) {
-				printf("Send %s failed\n", file_name);
-				break;
-			}
-			bzero(buffer, BUFFER_SIZE);
+		if (strcmp(received_vector[0],"DELETE")==0){
+			//delete the file
+			//string cmd = "rm "+file_name
+			//popen(cmd, "r");
 		}
-		fclose(fp);
-		printf("Transfer Successfully. \n");
-		close(new_server_fd);
+		else if (strcmp(received_vector[0],"GET")==0){
+
+			FILE *fp = fopen(file_name, "rb");
+			char buffer[BUFFER_SIZE];
+			if(fp == NULL) {
+				printf("File %s not found.\n", file_name);
+			} else {
+				bzero(buffer, BUFFER_SIZE);
+				int length = 0;
+				while((length = fread(buffer, sizeof(char), BUFFER_SIZE, fp)) > 0) {
+					if(send(new_server_fd, buffer, length, 0) < 0) {
+						printf("Send %s failed\n", file_name);
+						break;
+					}
+					bzero(buffer, BUFFER_SIZE);
+				}
+				fclose(fp);
+				printf("Transfer Successfully. \n");
+				close(new_server_fd);
+			}
+		}
 	}
 	return 0;
 }
@@ -784,7 +796,8 @@ int test(){
 			if(strcmp(ptr, "DELETE") == 0) {
 				ptr = strtok(NULL, delim);
 				string target_file = (string) ptr;
-				delete_file(target_file); //delete local copy
+				//delete_file(target_file); //delete local copy => This can be done when server notices it.
+				
 				//tell master to delete file
 				msg = "DELETE_SDFS " + target_file
 				send_msg(msg, master);
