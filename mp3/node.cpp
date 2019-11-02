@@ -530,7 +530,30 @@ int master() {
 					if((cur_time - file_map[file_name].timestamp) < MIN_UPDATE_DURATION ) {
 						string update_confirm_msg = "LESS1MIN";
 						send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
-						// recv()
+						
+						struct pollfd fd;
+						int ret;
+						fd.fd = new_server_fd; //  socket handler 
+						fd.events = POLLIN;
+						ret = poll(&fd, 30, 1000); // 30 second for timeout
+						switch (ret) {
+						    case -1:
+						        // Error
+						        break;
+						    case 0:
+						        // Timeout
+						    	update_confirm_msg = "NO";
+								send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
+						        break;
+						    default:
+						        recv(new_server_fd,received_info,sizeof(received_info), 0); // get  data
+						        update_confirm_msg = received_info;
+						        // add 4 nodes to update_confirm_msg and send back
+
+						        break;
+						}
+						printf("\nThe order received is: %s\n", received_info);
+
 
 					} else {
 						string replicas = "";
@@ -734,24 +757,19 @@ int put(string target_file) {
 	send_msg(msg, master);
 	char delim[] = " ";
 	char *ptr = strtok(msg.c_str(), delim); 
-	long start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	long present_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	//long start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	//long present_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	if (strcmp(ptr, "LESS1MIN") == 0){
 		string YESNO = "";
 		while ((YESNO != "YES") && (YESNO != "NO")){
 			cout << "The update is less than one min. Do you want to continue?(YES/NO)";
 			cin >> YESNO;
-			present_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			if((present_time - start_time) > 30000) {
-				cout << "Time out, update denied.";
-				break;
-			}
 		}
 		send_msg(YESNO, master);
-		if (YESNO == "NO" || (present_time - start_time) > 30000){
+		if (YESNO == "NO"){	//either timeout or cin is NO.
 			return 0;
 		} else{
-			ptr = strtok(msg.c_str(), delim); 
+			ptr = strtok(NULL, delim); 
 		}
 	}
 	ids = [stoi(ptr), stoi(strtok(NULL,delim)), stoi(strtok(NULL,delim))]; //3 other copies, revise this later
