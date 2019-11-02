@@ -336,8 +336,10 @@ int monitor(){ //UDP monitor heartbeat
 		        			if (am_I_master){
 		        				master_id = myinfo.id;
 
-		        				master_init(); // build file table (public var)
+		        				master_init(); //TODO: build file table (public var)
 		        			}
+		        		} else if (master_id == myinfo.id){ //I'm the master
+		        			// TODO: add new copy to make up the fail
 		        		}
 		        	}
 		        }
