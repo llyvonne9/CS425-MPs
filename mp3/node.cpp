@@ -319,6 +319,20 @@ int monitor(){ //UDP monitor heartbeat
 		        		printf("Remove %d after received a heartbeat", cur_id);
 		        		membership_list.erase(cur_id);
 		        		need_update = true;
+
+		        		if (cur_id==master_id){
+		        			bool am_I_master = true;
+		        			for (auto it: membeship_list){
+		        				if (it < myinfo.id){
+		        					am_I_master = false;
+		        				}
+		        			}
+		        			if (am_I_master){
+		        				master_id = myinfo.id;
+
+		        				master_init(); // build file table (public var)
+		        			}
+		        		}
 		        	}
 		        }
 
@@ -340,6 +354,8 @@ int monitor(){ //UDP monitor heartbeat
 				for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
 					printf("Machine %d \n", *it);
 				}
+
+
 		    }
 		    
 
@@ -952,6 +968,14 @@ int main(int argc, char const *argv[]) {
     thread thread_monitor;
 	thread_monitor = thread(monitor);
 	// cout<<"fine3\n";
+
+	//start master server in a thread
+	thread thread_master;
+	//thread_master = thread(master);
+
+	//start file server in a thread
+	thread thread_fileserver;
+	//thread_fileserver = thread(file_server);
 
 	long cur_time = 0;
 	while(true){
