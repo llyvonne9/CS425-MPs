@@ -511,6 +511,7 @@ int master() {
 				
 
 			} else if(strcmp(received_info[0], "PUT_SDFS") == 0) {
+				string file_name = received_info_vec[1];
 				if(!check_file_exists(file_map, file_name)) {
 					for(int i = 0; i < REPLICA; i++) {
 						set<int> nodes;
@@ -522,6 +523,26 @@ int master() {
 				} else {
 					//confirmation about update
 					//update
+
+					long cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+					long confirmed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+					if((cur_time - file_map[file_name].timestamp) < MIN_UPDATE_DURATION ) {
+						string update_confirm_msg = "LESS1MIN";
+						send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
+						// recv()
+
+					} else {
+						string replicas = "";
+						set<int>::iterator it;
+						for(it = file_map.begin(); it!=file_map.end(); it++)  {
+							if(replicas.length() == 0) replicas += it;
+							else replicas += " " + it;
+						}
+					}
+
+					
+
 				}
 			} else if(strcmp(received_info[0], "DELETE_SDFS") == 0) {
 				if(!check_file_exists(file_map, file_name)) {
@@ -713,14 +734,21 @@ int put(string target_file) {
 	send_msg(msg, master);
 	char delim[] = " ";
 	char *ptr = strtok(msg.c_str(), delim); 
+	long start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	long present_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	if (strcmp(ptr, "LESS1MIN") == 0){
 		string YESNO = "";
 		while ((YESNO != "YES") && (YESNO != "NO")){
-			cout << "The update is less than one min. Do you want to continue?(YES/NO)"
+			cout << "The update is less than one min. Do you want to continue?(YES/NO)";
 			cin >> YESNO;
+			present_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			if((present_time - start_time) > 30000) {
+				cout << "Time out, update denied.";
+				break;
+			}
 		}
 		send_msg(YESNO, master);
-		if (YESNO == "NO"){
+		if (YESNO == "NO" || (present_time - start_time) > 30000){
 			return 0;
 		} else{
 			ptr = strtok(msg.c_str(), delim); 
