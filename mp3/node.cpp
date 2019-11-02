@@ -28,6 +28,7 @@ using namespace std::chrono;
 #define PORT_FILE 8300
 #define NUM_NBR 4
 #define REPLICA 4
+#define DIR_SDFS "DIR_SDFS"
 
 //Server parameters to assign and to print
 struct server_para {
@@ -40,7 +41,10 @@ struct server_para {
     int status = 0;
     int sock = -1;
     int hb_times = 0;
+    //int is_master = 0;
 };
+
+int master_id = -1;
 
 int num_server = 0;
 string cmd = "";
@@ -221,6 +225,8 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 
 			hello += " MEMLIST" + mem_list;
 
+			hello += " "+"master_id"; //consensus about the current master
+
 			// printf("heartbeat info: %s\n", hello.c_str());
 
 			sendto(server_fd, hello.c_str(), hello.length(),  
@@ -291,11 +297,18 @@ int monitor(){ //UDP monitor heartbeat
 			// printf("Received heartbeat %s\n", buffer_str.c_str());
 			set<int> tmp_mem_list;
 			bool need_update = false;
-			for (int i = 3; i < v.size(); i += 3) {
+			int new_master_id =  v[v.size()-1]
+			//for (int i = 3; i < v.size(); i += 3) {
+			for (int i = 3; i < v.size()-1; i += 3) {
 		        int cur_id = (stoi(v[i]));
 		        int cur_hb = (stoi(v[i + 1]));
 		        int cur_status = (stoi(v[i + 2]));
 		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
+
+		        	if ((new_master_id != master_id) && (cur_id == new_master_id)){
+		        		master_id = new_master_id;
+		        	}
+
 		        	mem_hb_map.find(cur_id)->second = cur_hb;
 		        	if(cur_status == 1 && membership_list.find(cur_id) == membership_list.end()) {
 		        		printf("Add %d after received a heartbeat", cur_id);
@@ -471,7 +484,7 @@ int master() {
 			printf("\nThe order received is: %s\n", received_info);
 			vector<string> received_info_vec = split(received_info, " ");
 			string msg = "";
-			if(strcmp(received_info_vec[0], "GET") == 0) {
+			if(strcmp(received_info_vec[0], "GET_SDFS") == 0) {
 				string file_name = received_info_vec[1];
 				string msg = "";
 				if(!check_file_exists(file_name)) {
@@ -481,7 +494,7 @@ int master() {
 				}
 				
 
-			} else if(strcmp(received_info[0], "PUT") == 0) {
+			} else if(strcmp(received_info[0], "PUT_SDFS") == 0) {
 				if(!check_file_exists(file_map, file_name)) {
 					for(int i = 0; i < REPLICA; i++) {
 						set<int> nodes;
@@ -494,7 +507,7 @@ int master() {
 					//confirmation about update
 					//update
 				}
-			} else if(strcmp(received_info[0], "DELETE") == 0) {
+			} else if(strcmp(received_info[0], "DELETE_SDFS") == 0) {
 				if(!check_file_exists(file_map, file_name)) {
 
 				} else {
@@ -511,10 +524,16 @@ int master() {
 }
 
 int delete_file(file_name) {
-	if(remove(file_name) != 0)
-   		perror( "Error deleting file" );
-  	else
+	//if(remove(file_name) != 0)
+    //Delete the local copy
+	if local_file_set.find("file_name"){
+		local_file_set.erase("file_name")
     	printf("File %s is deleted successfully. \n", file_name);
+	} else {
+		perror( "Error deleting file" );
+		return -1;
+	}
+	return 1;
 }
 
 int send_file(file_name) {
@@ -583,9 +602,13 @@ int send_file(file_name) {
 
 int get(string target_file, string dir) {
 	// to master
-	string msg = "GET ";
+	string msg = "GET_SDFS "+target_file;
 	send_msg(msg, master);
 	int id = stoi(msg); 
+	if (id == -1){
+		print("Master server tells me no such file.");
+		return 1;
+	}
 
 	//to node
 
@@ -619,6 +642,71 @@ int get(string target_file, string dir) {
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
     myfile.close();
 
+}
+
+int put(string target_file) {
+	// to master
+	string msg = "PUT_SDFS "+target_file;
+	send_msg(msg, master);
+	char delim[] = " ";
+	char *ptr = strtok(msg.c_str(), delim); 
+	if (strcmp(ptr, "LESS1MIN") == 0){
+		string YESNO = "";
+		while ((YESNO != "YES") && (YESNO != "NO")){
+			cout << "The update is less than one min. Do you want to continue?(YES/NO)"
+			cin >> YESNO;
+		}
+		send_msg(YESNO, master);
+		if (YESNO == "NO"){
+			return 0;
+		} else{
+			ptr = strtok(msg.c_str(), delim); 
+		}
+	}
+	ids = [stoi(ptr), stoi(strtok(NULL,delim)), stoi(strtok(NULL,delim))]; //3 other copies, revise this later
+
+	//to node
+	msg = "PUT " + target_file;
+
+	//Test small, medium files first
+    ifstream myfile(DIR_SDFS + "/" + target_file);
+    stringstream stream_buf;
+    stream_buf << myfile.rdbuf();
+    string result = stream_buf.str();
+
+	for (int i=0; i<3; i++){
+		int valread; 
+		int sock;
+	    char recv_info[BUFFER_SIZE] = {0}; 
+
+	    struct sockaddr_in serv_addr; 	
+		init_socket_para(serv_addr, serverlist[ids[i]].addr.c_str(), serverlist[ids[i]].port);
+	    if (connect_socket(sock, serv_addr)<0){membership_list.find(id) == membership_list.end(); return -1;}
+
+	    send(sock, msg.c_str(), msg.length(), 0);
+	    printf("cmd sent %s \n ", msg.c_str());
+
+		char buffer[BUFFER_SIZE] = {0}; 
+
+		if (read(sock , buffer, BUFFER_SIZE)!="OK"){
+			perror("file put init error");
+			return -1;
+		}
+
+	    int total_sent = 0;
+		printf("result length=%lu\n",result.length());
+		int n_sent = 0;
+		//send the msg segment by segment
+		while (total_sent < result.length()){
+			int n_bytes = result.length() - total_sent < BUFFER_SIZE - 1? result.length() - total_sent: BUFFER_SIZE - 1;
+			n_sent = send(sock, result.c_str() + total_sent, n_bytes, 0);
+			total_sent += n_sent;
+		}
+		close(sock);
+
+	    printf("PUT finished. Total sent bytes: %d", total_sent);
+	}
+	myfile.close();
 }
 
 //listen to test command
@@ -692,6 +780,19 @@ int test(){
 				ptr = strtok(NULL, delim);
 				string dir = (string) ptr;
 				get(target_file, dir);
+			}
+			if(strcmp(ptr, "DELETE") == 0) {
+				ptr = strtok(NULL, delim);
+				string target_file = (string) ptr;
+				delete_file(target_file); //delete local copy
+				//tell master to delete file
+				msg = "DELETE_SDFS " + target_file
+				send_msg(msg, master);
+			}
+			if(strcmp(ptr, "PUT") == 0) {
+				ptr = strtok(NULL, delim);
+				string target_file = (string) ptr;
+				put(target_file);
 			}
 		}
 		//if introducer sent update information about its neighbor

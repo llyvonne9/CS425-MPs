@@ -147,7 +147,11 @@ int init_para(int argc, char const *argv[]){
         string action = (string) argv[3];
         if(strcmp(action, "JOIN") == 0 || strcmp(action, "LEAVE") == 0) cmd = "TEST "+ action;
         else if(strcmp(action, "GET") == 0) {
-            cmd = "TEST " + (string) argv[4] + " " + (string) argv[5];
+            cmd = "TEST " + action + " "+ (string) argv[4] + " " + (string) argv[5];
+        }else if(strcmp(action, "PUT") == 0) {
+            cmd = "TEST " + action + " "+ (string) argv[4];
+        }else if(strcmp(action, "DELETE") == 0) {
+            cmd = "TEST " + action + " "+ (string) argv[4];
         }
     }
     return 0;
