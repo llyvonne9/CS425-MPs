@@ -133,7 +133,7 @@ vector<string> split (string s, string delimiter) {
 //Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
     if (argc != 3 && argc != 4){
-        printf("use paramer: id (ip) command(JOIN/LEAVE/INFO)");
+        printf("use paramer: id (ip) command(JOIN/LEAVE/INFO/store/ls)");
     }
     node.port = PORT_TEST + stoi(argv[1]);
     // node.addr = (string) argv[2];
@@ -141,16 +141,18 @@ int init_para(int argc, char const *argv[]){
     printf("argc %d\n", argc);
     if(argc < 4) {
         node.addr = id_to_ip.find(stoi(argv[1]))->second;
-        cmd = "TEST "+(string) argv[2];
+        cmd = "TEST "+ (string) argv[2];
     } else {
         node.addr = (string) argv[2];
         string action = (string) argv[3];
-        if(strcmp(action, "JOIN") == 0 || strcmp(action, "LEAVE") == 0) cmd = "TEST "+ action;
-        else if(strcmp(action, "GET") == 0) {
+        if(strcmp(action.c_str(), "JOIN") == 0 || strcmp(action.c_str(), "LEAVE") == 0 || strcmp(action.c_str(), "INFO") == 0) cmd = "TEST "+ action;
+        else if(strcmp(action.c_str(), "GET") == 0) {
             cmd = "TEST " + action + " "+ (string) argv[4] + " " + (string) argv[5];
-        }else if(strcmp(action, "PUT") == 0) {
+        }else if(strcmp(action.c_str(), "PUT") == 0) {
             cmd = "TEST " + action + " "+ (string) argv[4];
-        }else if(strcmp(action, "DELETE") == 0) {
+        }else if(strcmp(action.c_str(), "DELETE") == 0) {
+            cmd = "TEST " + action + " "+ (string) argv[4];
+        } else if(strcmp(action.c_str(), "ls") == 0) {
             cmd = "TEST " + action + " "+ (string) argv[4];
         }
     }
@@ -169,7 +171,7 @@ int main(int argc, char const *argv[]) {
         // printf("id ip %d %s\n", stoi(v[0]), v[1].c_str());
         line++;
     }
-    cout << "pass";
+    // cout << "pass";
     init_para(argc, argv);
 
     //Connect to Introducer
