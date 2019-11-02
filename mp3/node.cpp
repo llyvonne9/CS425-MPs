@@ -44,6 +44,12 @@ struct server_para {
     //int is_master = 0;
 };
 
+struct file_para{
+	string name;
+	set<int> nodes;
+	long timestamp;
+};
+
 int master_id = -1;
 
 int num_server = 0;
@@ -459,8 +465,7 @@ bool check_file_exists(map<int, set<int>> file_map, string file_name) {
 
 int master() {
 	//struct
-	map<string, set<int>> file_map;
-	map<string, int> file_timestamp;
+	map<string, file_para> file_map;
 	int server_fd, new_server_fd;
 	struct sockaddr_in addr;
 	string delimiter = "_";
@@ -512,6 +517,7 @@ int master() {
 
 			} else if(strcmp(received_info[0], "PUT_SDFS") == 0) {
 				string file_name = received_info_vec[1];
+				set<int> nodes;
 				if(!check_file_exists(file_map, file_name)) {
 					for(int i = 0; i < REPLICA; i++) {
 						set<int> nodes;
@@ -520,6 +526,12 @@ int master() {
 						if(i > 0) msg += " " + to_string(next_id);
 						else msg = to_string(next_id);
 					}
+					file_para fp;
+					fp.name = file_name;
+					fp.nodes = nodes;
+					fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+					file_map.insert({file_name, fp});
+
 				} else {
 					//confirmation about update
 					//update
@@ -530,20 +542,43 @@ int master() {
 					if((cur_time - file_map[file_name].timestamp) < MIN_UPDATE_DURATION ) {
 						string update_confirm_msg = "LESS1MIN";
 						send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
-						// recv()
+												struct pollfd fd;
+						int ret;
+						fd.fd = new_server_fd; //  socket handler 
+						fd.events = POLLIN;
+						ret = poll(&fd, 30, 1000); // 30 second for timeout
+						switch (ret) {
+						    case -1:
+						        // Error
+						        break;
+						    case 0:
+						        // Timeout
+						    	update_confirm_msg = "NO";
+								send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
+						        break;
+						    default:
+						        recv(new_server_fd,received_info,sizeof(received_info), 0); // get  data
+						        update_confirm_msg = received_info;
+						        
+						        
 
-					} else {
-						string replicas = "";
-						set<int>::iterator it;
-						for(it = file_map.begin(); it!=file_map.end(); it++)  {
-							if(replicas.length() == 0) replicas += it;
-							else replicas += " " + it;
+						        break;
 						}
-					}
+						printf("\nThe order received is: %s\n", received_info);
 
+					}
+					string replicas = "";
+					set<int>::iterator it;
+					for(it = file_map.begin(); it!=file_map.end(); it++)  {
+						if(replicas.length() == 0) replicas += it;
+						else replicas += " " + it;
+					}
+				}
+				send(new_server_fd, msg.c_str(), msg.length(), 0);
+				close(new_server_fd);
 					
 
-				}
+
 			} else if(strcmp(received_info[0], "DELETE_SDFS") == 0) {
 				if(!check_file_exists(file_map, file_name)) {
 
@@ -554,10 +589,11 @@ int master() {
 					}
 					msg = "OK";
 				}
+				send(new_server_fd, msg.c_str(), msg.length(), 0);
+				close(new_server_fd);
 			}
 
-			send(new_server_fd, msg.c_str(), msg.length(), 0);
-			close(new_server_fd);
+			
 		}
 
 	}
@@ -734,21 +770,14 @@ int put(string target_file) {
 	send_msg(msg, master);
 	char delim[] = " ";
 	char *ptr = strtok(msg.c_str(), delim); 
-	long start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-	long present_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	if (strcmp(ptr, "LESS1MIN") == 0){
 		string YESNO = "";
 		while ((YESNO != "YES") && (YESNO != "NO")){
 			cout << "The update is less than one min. Do you want to continue?(YES/NO)";
 			cin >> YESNO;
-			present_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			if((present_time - start_time) > 30000) {
-				cout << "Time out, update denied.";
-				break;
-			}
 		}
 		send_msg(YESNO, master);
-		if (YESNO == "NO" || (present_time - start_time) > 30000){
+		if (YESNO == "NO"){
 			return 0;
 		} else{
 			ptr = strtok(msg.c_str(), delim); 
