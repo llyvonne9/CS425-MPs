@@ -225,7 +225,7 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 
 			hello += " MEMLIST" + mem_list;
 
-			hello += " "+"master_id"; //consensus about the current master
+			hello += " "+master_id; //consensus about the current master
 
 			// printf("heartbeat info: %s\n", hello.c_str());
 
@@ -604,28 +604,58 @@ int file_server(file_name) {
 			//popen(cmd, "r");
 		}
 		else if (strcmp(received_vector[0],"GET")==0){
-
-			FILE *fp = fopen(file_name, "rb");
-			char buffer[BUFFER_SIZE];
-			if(fp == NULL) {
-				printf("File %s not found.\n", file_name);
-			} else {
-				bzero(buffer, BUFFER_SIZE);
-				int length = 0;
-				while((length = fread(buffer, sizeof(char), BUFFER_SIZE, fp)) > 0) {
-					if(send(new_server_fd, buffer, length, 0) < 0) {
-						printf("Send %s failed\n", file_name);
-						break;
-					}
-					bzero(buffer, BUFFER_SIZE);
-				}
-				fclose(fp);
-				printf("Transfer Successfully. \n");
-				close(new_server_fd);
-			}
+			send_file(file_name, new_server_fd);
+		}
+		else if (strcmp(received_vector[0],"GET")==0){
+			get_file(file_name, new_server_fd);
 		}
 	}
+	close(new_server_fd);
 	return 0;
+}
+
+int send_file(string file_name, int sock){
+	FILE *fp = fopen(file_name, "rb");
+	char buffer[BUFFER_SIZE];
+	int length = 0, total_len = 0, n_sent=0;
+	if(fp == NULL) {
+		printf("File %s not found.\n", file_name);
+	} else {
+		bzero(buffer, BUFFER_SIZE);
+		while((length = fread(buffer, sizeof(char), BUFFER_SIZE, fp)) > 0) {
+			if((n_sent = send(sock, buffer, length, 0)) < 0) {
+				printf("Send %s failed\n", file_name);
+				break;
+			}
+			total_len += n_sent;
+			bzero(buffer, BUFFER_SIZE);
+		}
+		printf("Transfer Successfully. \n");
+	}
+	fclose(fp);
+	return total_len;
+}
+
+int get_file(string file_name, int sock){
+	FILE *fp = fopen(file_name, "wb");
+	char buffer[BUFFER_SIZE];
+	int length = 0, total_len = 0;
+	if(fp == NULL) {
+		printf("File %s not found.\n", file_name);
+	} else {
+		bzero(buffer, BUFFER_SIZE);
+		while ((length = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
+	        if (length < BUFFER_SIZE-1){
+	            buffer[valread] = '\0';
+	        }
+	        fwrite(buffer, sizeof(char), BUFFER_SIZE, fp);
+	        bzero(buffer, BUFFER_SIZE);
+	        total_len += length;
+	    }
+		printf("Transfer Successfully. \n");
+	}
+	fclose(fp);
+	return total_len;
 }
 
 int get(string target_file, string dir) {
@@ -653,6 +683,10 @@ int get(string target_file, string dir) {
     send(sock, msg.c_str(), msg.length(), 0);
     printf("cmd sent %s \n ", msg.c_str());
 
+    int total_len = get_file(dir + "/" + target_file, sock);
+    printf("total receive %d bits", total_len);
+
+    /*
 	char buffer[BUFFER_SIZE] = {0}; 
 	string res = "";
     ofstream myfile;
@@ -669,6 +703,7 @@ int get(string target_file, string dir) {
     printf("GET finished. Total received bytes: %lu", res.length());
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
     myfile.close();
+    */
 
 }
 
@@ -697,10 +732,10 @@ int put(string target_file) {
 	msg = "PUT " + target_file;
 
 	//Test small, medium files first
-    ifstream myfile(DIR_SDFS + "/" + target_file);
-    stringstream stream_buf;
-    stream_buf << myfile.rdbuf();
-    string result = stream_buf.str();
+    //ifstream myfile(DIR_SDFS + "/" + target_file);
+    //stringstream stream_buf;
+    //stream_buf << myfile.rdbuf();
+    //string result = stream_buf.str();
 
 	for (int i=0; i<3; i++){
 		int valread; 
@@ -721,6 +756,9 @@ int put(string target_file) {
 			return -1;
 		}
 
+		int total_sent = send_file(DIR_SDFS + "/" + target_file, sock);
+
+		/*
 	    int total_sent = 0;
 		printf("result length=%lu\n",result.length());
 		int n_sent = 0;
@@ -731,6 +769,7 @@ int put(string target_file) {
 			total_sent += n_sent;
 		}
 		close(sock);
+		*/
 
 	    printf("PUT finished. Total sent bytes: %d", total_sent);
 	}
