@@ -74,6 +74,34 @@ set<string> sdfs_file_set;
 map<int, set<string>> files_per_node;
 map<string, file_para> file_map;
 
+/*
+int cur_rnd_idx = 0;
+//return a node that doesn't possess the file yet
+int rand_idx(string file_name){
+	int idx = cur_rnd_idx;
+	while(true){
+		idx++;
+		if (idx == files_per_node.size())
+			idx = 0;
+		if (file_map[file_name].nodes.find(idx) != file_map[file_name].nodes.end()){
+			break;
+		}
+	}
+	cur_rnd_idx = idx;
+	return idx;
+}
+
+//replicate files in a failed node to new
+int copy_files(int id){
+	for(auto ele: files_per_node[id]){
+		int src_node = file_map[ele].nodes[0]==id? file_map[ele].nodes[1]:file_map[ele].nodes[0];
+		int trg_node = rand_idx(ele);
+		string msg = "COPY "+ele+" TO "+trg_node;
+		send_msg(msg, serverlist[src_node]);	//make sure the current design has fixed id for nodes.
+	}
+}
+*/
+
 //Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server, int socktype){   
     struct addrinfo hints = {}, *addrs;
@@ -189,14 +217,19 @@ int re_replica(int id) {
 		string file_name = *it;
 		set<int> nodes = file_map[file_name].nodes;
 		nodes.erase(id);
+		int src_id = *nodes.begin(), trg_id=-1;
 		set<int>::iterator it;
 		for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
-			int id = *it;
-			if(nodes.find(id) != nodes.end()) {
-				nodes.insert(id);
+			trg_id = *it;
+			if(nodes.find(trg_id) != nodes.end()) {
+				nodes.insert(trg_id);
 				break;
 			}
 		}
+		//string msg = "COPY "+ file_name + " TO "+ to_string(trg_id);
+		string msg = "SEND_DUPICATE " + file_name + " " + to_string(trg_id);
+		cout<< "send "+to_string(src_id)+" a msg: "+msg;
+		send_msg(msg, serverlist[src_id-1]);
 	}
 	return 0;
 }
@@ -234,7 +267,7 @@ int master_init() {
 			for(int i = 1; i < 11; i++) {
 				if(membership_list.find(i) != membership_list.end() && nodes.find(i) == nodes.end()) {
 					int sender = *nodes.begin(); 
-					string msg = "SEND_DUPICATE " + it->first;
+					string msg = "SEND_DUPICATE " + it->first + " " + to_string(i);
 					send_msg(msg, serverlist[i - 1]);
 					if(strcmp(msg.c_str(), "OK") == 0) {
 						nodes.insert(i);
@@ -404,9 +437,6 @@ int monitor(){ //UDP monitor heartbeat
 		        	if(cur_status == -1 && membership_list.find(cur_id) != membership_list.end()) {
 		        		printf("Remove %d after received a heartbeat", cur_id);
 		        		membership_list.erase(cur_id);
-		        		if(myinfo.id == master_id) {
-							re_replica(cur_id);
-						}
 		        		need_update = true;
 
 		        		if (cur_id==master_id){
@@ -421,8 +451,9 @@ int monitor(){ //UDP monitor heartbeat
 
 		        				master_init(); //TODO: build file table (public var)
 		        			}
-		        		} else if (master_id == myinfo.id){ //I'm the master
-		        			// TODO: add new copy to make up the fail
+		        		}
+		        		if (master_id == myinfo.id){ //I'm the master
+		        			re_replica(cur_id);
 		        		}
 		        	}
 		        }
@@ -476,6 +507,15 @@ int init_para(int argc, char const *argv[]){
 	} else {
 		cout << "Need one parameter: id";
 		return -1;
+	}
+
+	//create local dir
+	try {
+	    string dir = DIR_SDFS + to_string(myinfo.id);
+		string cmd = "mkdir "+ dir;
+		popen(cmd.c_str(), "r");
+	} catch (std::exception const &e) {
+		
 	}
 	return 0;
 }
@@ -1314,7 +1354,33 @@ int file_server() {
 			get_file(received_vector[2], new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
-		}
+		} 
+		/*else if(strcmp(received_vector[0].c_str(),"COPY")==0) {
+			int trg_id = stoi(received_vector[3]);
+			string msg = "PUT "+received_vector[1];
+			int sock;
+		    char recv_info[BUFFER_SIZE] = {0}; 
+
+		    struct sockaddr_in serv_addr; 	
+			init_socket_para(serv_addr, serverlist[trg_id-1].addr.c_str(), serverlist[trg_id-1].port);
+		    if (connect_socket(sock, serv_addr)<0 || membership_list.find(stoi(ids[i])) == membership_list.end()){
+		    	return -1;
+		    }
+
+		    send(sock, msg.c_str(), msg.length(), 0);
+		    printf("cmd sent %s \n ", msg.c_str());
+
+			int valread = read(sock, recv_info, BUFFER_SIZE);
+			recv_info[valread] = '\0';
+			printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+
+			msg = string(recv_info);
+
+			if (msg == "OK"){
+				send_file(received_vector[1], sock);
+			}
+		    close(sock);
+		}*/
 		close(new_server_fd);
 	}
 	
@@ -1407,7 +1473,7 @@ int main(int argc, char const *argv[]) {
     char recv_info[BUFFER_SIZE] = {0}; 
 
     getServers();
-    master_server = serverlist[1];
+    master_server = serverlist[0];
     master_server.port = PORT_MASTER + master_server.id - 1;
     printf("Master is Machine %d\n", master_server.id);
     
