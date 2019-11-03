@@ -17,6 +17,8 @@
 #include <set>
 #include <map>
 #include <sys/poll.h>
+#include <cstddef>
+#include <ctime>
 using namespace std;
 using namespace std::chrono;
 
@@ -628,6 +630,8 @@ int master() {
 					fp.nodes = nodes;
 					fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					file_map.insert({file_name, fp});
+					send(new_server_fd, msg.c_str(), msg.length(), 0);
+					close(new_server_fd);
 				} else {
 					//confirmation about update
 					//update
@@ -687,17 +691,17 @@ int master() {
 						}
 						printf("[Update] Master sent msg: %s\n", replicas.c_str());
 						msg = replicas;
+						
 					} else {
 						
 						printf("[Update] master denied with msg: %s\n", update_confirm_msg.c_str());
 						msg = "NO";
 					}
+
+					send(new_server_fd, msg.c_str(), msg.length(), 0);
+					close(new_server_fd);
 					
 				}
-				send(new_server_fd, msg.c_str(), msg.length(), 0);
-				close(new_server_fd);
-					
-
 
 			} else if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0 || strcmp(received_info_vec[0].c_str(), "LS_SDFS") == 0) {
 				string file_name = received_info_vec[1];
@@ -885,6 +889,27 @@ int get(string sdfs_filename, string local_filename) {
 
 }
 
+string readStdIn()
+{
+    struct pollfd pfd = { STDIN_FILENO, POLLIN, 0 };
+
+    std::string line;
+    int ret = 0;
+    while(ret == 0)
+    {
+        ret = poll(&pfd, 1, 35000);  // timeout of 1000ms
+        if(ret == 1) // there is something to read
+        {
+            std::getline(std::cin, line);
+        }
+        else if(ret == -1)
+        {
+            std::cout << "Error: " << strerror(errno) << std::endl;
+        }
+    }
+    return line;
+}
+
 int put(string local_file, string target_file) {
 	// to master
 	string msg = "PUT_SDFS "+target_file;
@@ -913,17 +938,30 @@ int put(string local_file, string target_file) {
 
 	// send_msg(msg, master_server);
 	char delim[] = " ";
-	char *dup = strdup(msg.c_str());
-	char *ptr = strtok(dup, delim); 
-	free(dup);
+	// char *dup = strdup(msg.c_str());
+	char *ptr = strtok(recv_info, delim); 
+	// free(dup);
 	if (strcmp(ptr, "LESS1MIN") == 0){
 		string YESNO = "";
-		while ((YESNO != "YES") && (YESNO != "NO") && ((YESNO == "YES" || YESNO == "NO)") && send(sock_confim, YESNO.c_str(), YESNO.length(), 0))){
+		while ((YESNO != "YES") && (YESNO != "NO")){
 			cout << "The update is less than one min. Do you want to continue?(YES/NO)";
-			cin >> YESNO;
-			if(YESNO.length() != 0) break;
+			// cin >> YESNO;
+			fd_set fds;
+			FD_ZERO(&fds);
+			FD_SET(STDIN_FILENO, &fds);
+			timeval timeout;
+			timeout.tv_sec = 35;   // A five-second timeout
+			timeout.tv_usec = 0;
+
+			int rc = select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &timeout);
+			if (rc == 0)
+			{
+			    printf("Timeout\n");
+			} else {
+			    cin >> YESNO;
+			}
 		}
-		// send(sock_confim, YESNO.c_str(), YESNO.length(), 0);
+		send(sock_confim, YESNO.c_str(), YESNO.length(), 0);
 		printf("%s\n", YESNO.c_str());
 		if (YESNO == "NO"){	//either timeout or cin is NO.
 			printf("User withdraw update. \n");
@@ -931,8 +969,11 @@ int put(string local_file, string target_file) {
 			return 0;
 		} else{
 			// ptr = strtok(NULL, delim); 
+			char recv_info2[BUFFER_SIZE] = {0}; 
 			read(sock_confim, recv_info, BUFFER_SIZE);
+			msg = "";
 			msg = recv_info;
+			printf("msg in else %s\n", msg.c_str());
 			
 		}
 	} 
