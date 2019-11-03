@@ -960,6 +960,16 @@ int put(string local_file, string target_file) {
 	return 0;
 }
 
+
+int store() {
+	set<string>::iterator it;
+	printf("Result of store: \n");
+	for(it = sdfs_file_set.begin(); it!=sdfs_file_set.end(); it++)  {
+		printf("%s\n", (*it).c_str());
+	}
+	printf("\n");
+	return 0;
+}
 //listen to test command
 int test(){
 	int server_fd;
@@ -1051,7 +1061,12 @@ int test(){
 				printf("%s\n", sdfs_file.c_str());
 				put(local_file, sdfs_file);
 				msg = "OK";
-			}
+			} 
+
+			if(strcmp(ptr, "STORE") == 0) {
+				store();
+				msg = "OK";
+			} 
 		}
 		//if introducer sent update information about its neighbor
 		if (strcmp(ptr,"UPDATE")==0){
@@ -1148,7 +1163,8 @@ int file_server() {
 
 		if(strcmp(received_vector[0].c_str(),"DELETE")==0) {
 			//delete the file
-			string cmd = "rm "+file_name;
+			string dir = DIR_SDFS + to_string(myinfo.id);
+			string cmd = "rm "+ dir + "/" + file_name;
 			popen(cmd.c_str(), "r");
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
 			string msg = "OK";
@@ -1174,16 +1190,6 @@ int file_server() {
 	return 0;
 }
 
-
-int store() {
-	set<string>::iterator it;
-	printf("Result of store: ");
-	for(it = sdfs_file_set.begin(); it!=sdfs_file_set.end(); it++)  {
-		printf("%s\n", (*it).c_str());
-	}
-	printf("\n");
-	return 0;
-}
 
 int ls(string file_name) {
 	string msg = "LS_SDFS "+file_name;
