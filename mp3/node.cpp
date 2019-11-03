@@ -28,7 +28,7 @@ using namespace std::chrono;
 #define PORT_TEST 8200
 #define PORT_FILE 8300
 #define NUM_NBR 4
-#define REPLICA 4
+#define REPLICA 3
 #define DIR_SDFS "DIR_SDFS"
 #define MIN_UPDATE_DURATION 60000
 
@@ -52,7 +52,7 @@ struct file_para{
 	long timestamp;
 };
 
-int master_id = -1;
+int master_id = 2;
 
 int num_server = 0;
 string cmd = "";
@@ -202,7 +202,7 @@ int re_replica(int id) {
 int master_init() {
 	string msg = "COLLECT_SDFS";
 	for(int i = 1; i < 11; i++) {
-		send_msg(msg, serverlist[i]);
+		send_msg(msg, serverlist[i - 1]);
 
 		vector<string> files = split(msg, " ");
 		for(int j = 0; j < files.size(); j++) {
@@ -233,7 +233,7 @@ int master_init() {
 				if(membership_list.find(i) != membership_list.end() && nodes.find(i) == nodes.end()) {
 					int sender = *nodes.begin(); 
 					string msg = "SEND_DUPICATE " + it->first;
-					send_msg(msg, serverlist[i]);
+					send_msg(msg, serverlist[i - 1]);
 					if(strcmp(msg.c_str(), "OK") == 0) {
 						nodes.insert(i);
 						break;
@@ -559,7 +559,7 @@ int master() {
 
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(PORT_MASTER);
+	addr.sin_port = htons(PORT_MASTER + myinfo.id - 1);
 
 	//bind socket to the address
 	if(::bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
@@ -581,44 +581,56 @@ int master() {
 			}
 			read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
 			printf("\nThe order received is: %s\n", received_info);
-			vector<string> received_info_vec = split(received_info, " ");
+			string received_str = received_info;
+			vector<string> received_info_vec = split(received_str, " ");
 			string msg = "";
 			if(strcmp(received_info_vec[0].c_str(), "GET_SDFS") == 0) {
 				string file_name = received_info_vec[1];
 				string msg = "";
+
+				map<string, file_para>::iterator it;
+				for(it = file_map.begin(); it!=file_map.end(); it++)  {
+					printf("%s\n", (it -> first).c_str()); ;
+				}
+
 				if(!check_file_exists(file_name)) {
-					msg = "-1";
+					msg = "[GET RESULT] The file does not exit.";
 				} else {
-					msg = *(file_map[file_name].nodes).begin();;
+					msg = *((file_map.find(file_name)->second).nodes).begin();;
+					printf("[GET] master to node. msg: %s\n", msg.c_str());
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
 
 			} else if(strcmp(received_info_vec[0].c_str(), "PUT_SDFS") == 0) {
+				printf("PUT_SDFS\n");
 				string file_name = received_info_vec[1];
 				set<int> nodes;
 				if(!check_file_exists(file_name)) {
+					printf("File does not exist\n");
 					set<int> nodes;
 					for(int i = 0; i < REPLICA; i++) {
-						while(membership_list.find(next_id) == membership_list.end() || next_id == master_id) {
+						while(membership_list.find(next_id) == membership_list.end() || (file_map.find(file_name)->second).nodes.find(next_id) != (file_map.find(file_name)->second).nodes.end()) {
 							next_id++;
 							if(next_id != 10) next_id = next_id % 10;
 						}
 						nodes.insert(next_id);
-						next_id++;
+						
 						if(i > 0) msg += " " + to_string(next_id);
 						else msg = to_string(next_id);
+						printf("Replica %d\n", next_id);
+						next_id++;
 					}
+					printf("[PUT] Master to node %s\n", msg.c_str());
 					file_para fp;
 					fp.name = file_name;
 					fp.nodes = nodes;
 					fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					file_map.insert({file_name, fp});
-
 				} else {
 					//confirmation about update
 					//update
-
+					printf("File exists\n");
 					long cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					long confirmed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
@@ -647,7 +659,6 @@ int master() {
 
 						        break;
 						}
-						printf("\nThe order received is: %s\n", received_info);
 
 
 					} else {
@@ -657,7 +668,6 @@ int master() {
 							if(replicas.length() == 0) replicas += it -> first;
 							else replicas += " " + it -> first;
 						}
-						printf("\nThe order received is: %s\n", received_info);
 
 					}
 					string replicas = "";
@@ -683,7 +693,7 @@ int master() {
 						set<int> nodes = (file_map.find(file_name) -> second).nodes;
 						set<int>::iterator it;
 						for(it = nodes.begin(); it!= nodes.end(); it++)  {
-							send_msg(msg, serverlist[(int)(*it)]);
+							send_msg(msg, serverlist[(int)(*it) - 1]);
 						}
 						
 					// }
@@ -724,6 +734,7 @@ int delete_file(string file_name) {
 }
 
 int send_file(string file_name, int sock){
+	printf("send_file\n");
 	FILE *fp = fopen(file_name.c_str(), "rb");
 	char buffer[BUFFER_SIZE];
 	int length = 0, total_len = 0, n_sent=0;
@@ -739,10 +750,11 @@ int send_file(string file_name, int sock){
 			total_len += n_sent;
 			bzero(buffer, BUFFER_SIZE);
 		}
-		printf("Transfer Successfully. \n");
+		printf("Transfer Successfully. Total bytes: %d\n", total_len);
 	}
 	fclose(fp);
-	return total_len;
+	close(sock);
+	return 0;
 }
 
 int get_file(string sdfs_name, int sock){
@@ -766,23 +778,27 @@ int get_file(string sdfs_name, int sock){
 	// fclose(fp);
 	// return total_len;
 	int valread; 
-	remove(sdfs_name.c_str());
+	// remove(sdfs_name.c_str());
 	char buffer[BUFFER_SIZE] = {0}; 
 	string res = "";
     ofstream myfile;
-    ofstream outfile (sdfs_name);
-    myfile.open (sdfs_name, ios::app);
+    string dir = DIR_SDFS + to_string(myinfo.id);
+    printf("get_file %s\n", (dir + "/" + sdfs_name).c_str());
+    ofstream outfile (dir + "/" + sdfs_name);
+    printf("Created file\n");
+    myfile.open (dir + "/" + sdfs_name, ios::app);
     while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
         if (valread < BUFFER_SIZE-1){
             buffer[valread] = '\0';
         }
         res += buffer;
-        
     }
     myfile << res;
     printf("PUT finished. Total received bytes: %lu", res.length());
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
+    // printf("%s\n", res.c_str());
     myfile.close();
+    close(sock);
     return 0;
 
 }
@@ -793,7 +809,7 @@ int send_dup(string file_name, int id) {
 	char recv_info[BUFFER_SIZE] = {0}; 
 
 	struct sockaddr_in serv_addr; 	
-	init_socket_para(serv_addr, serverlist[id].addr.c_str(), serverlist[id].port);
+	init_socket_para(serv_addr, serverlist[id - 1].addr.c_str(), serverlist[id - 1].port);
 	if (connect_socket(sock, serv_addr)<0 || membership_list.find(id) == membership_list.end()){
 	    return -1;
 	}
@@ -813,26 +829,28 @@ int send_dup(string file_name, int id) {
 	return 0;
 }
 
-int get(string target_file, string dir) {
+int get(string sdfs_filename, string local_filename) {
 	// to master
-	string msg = "GET_SDFS "+target_file;
+	string msg = "GET_SDFS "+ sdfs_filename;
 	send_msg(msg, master_server);
 	int id = stoi(msg); 
 	if (id == -1){
 		printf("Master server tells me no such file.");
 		return 1;
+	} else {
+		printf("Ready to get from node %d\n", id);
 	}
 
 	//to node
 
-	msg = "GET " + target_file;
+	msg = "GET " + sdfs_filename;
 
 	int valread; 
 	int sock;
     char recv_info[BUFFER_SIZE] = {0}; 
 
     struct sockaddr_in serv_addr; 	
-	init_socket_para(serv_addr, serverlist[id].addr.c_str(), serverlist[id].port);
+	init_socket_para(serv_addr, serverlist[id - 1].addr.c_str(), serverlist[id - 1].port);
     if (connect_socket(sock, serv_addr)<0 || membership_list.find(id) == membership_list.end()){return -1;}
 
     send(sock, msg.c_str(), msg.length(), 0);
@@ -845,8 +863,8 @@ int get(string target_file, string dir) {
 	char buffer[BUFFER_SIZE] = {0}; 
 	string res = "";
     ofstream myfile;
-    // ofstream outfile (dir + "/" + target_file);
-    myfile.open (dir + "/" + target_file, ios::app);
+    ofstream outfile (local_filename);
+    myfile.open (local_filename, ios::app);
     while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
         if (valread < BUFFER_SIZE-1){
             buffer[valread] = '\0';
@@ -862,9 +880,10 @@ int get(string target_file, string dir) {
 
 }
 
-int put(string target_file) {
+int put(string local_file, string target_file) {
 	// to master
 	string msg = "PUT_SDFS "+target_file;
+	printf("Send put to master %s\n", msg.c_str());
 	send_msg(msg, master_server);
 	char delim[] = " ";
 	char *dup = strdup(msg.c_str());
@@ -894,13 +913,14 @@ int put(string target_file) {
     //stream_buf << myfile.rdbuf();
     //string result = stream_buf.str();
 
-	for (int i=0; i<4; i++){
+	for (int i=0; i<REPLICA; i++){
+		printf("Put to %s\n", ids[i].c_str());
 		int valread; 
 		int sock;
 	    char recv_info[BUFFER_SIZE] = {0}; 
 
 	    struct sockaddr_in serv_addr; 	
-		init_socket_para(serv_addr, serverlist[stoi(ids[i])].addr.c_str(), serverlist[stoi(ids[i])].port);
+		init_socket_para(serv_addr, serverlist[stoi(ids[i]) - 1].addr.c_str(), serverlist[stoi(ids[i]) - 1].port);
 	    if (connect_socket(sock, serv_addr)<0 || membership_list.find(stoi(ids[i])) == membership_list.end()){
 	    	return -1;
 	    }
@@ -908,14 +928,14 @@ int put(string target_file) {
 	    send(sock, msg.c_str(), msg.length(), 0);
 	    printf("cmd sent %s \n ", msg.c_str());
 
-		char buffer[BUFFER_SIZE] = {0}; 
+		char buffer[BUFFER_SIZE] = {0};
+		printf("[PUT]send file\n"); 
 
-		if (read(sock , buffer, BUFFER_SIZE) < 0){
-			perror("file put init error");
-			return -1;
-		}
-		string dir_sdfs = DIR_SDFS;
-		int total_sent = send_file(dir_sdfs + "/" + target_file, sock);
+		valread = read(sock , buffer, BUFFER_SIZE) < 0;
+
+		printf("[PUT]received %s before sending file\n", buffer);
+		string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
+		int total_sent = send_file(local_file, sock);
 
 		/*
 	    int total_sent = 0;
@@ -931,6 +951,7 @@ int put(string target_file) {
 		*/
 
 	    printf("PUT finished. Total sent bytes: %d", total_sent);
+	    close(sock);
 	}
 	// myfile.close();
 	return 0;
@@ -1003,10 +1024,11 @@ int test(){
 			}
 			if(strcmp(ptr, "GET") == 0) {
 				ptr = strtok(NULL, delim);
-				string target_file = (string) ptr;
+				string sdfs_file = (string) ptr;
 				ptr = strtok(NULL, delim);
-				string dir = (string) ptr;
-				get(target_file, dir);
+				string local_file = (string) ptr;
+				get(sdfs_file, local_file);
+				msg = "OK";
 			}
 			if(strcmp(ptr, "DELETE") == 0) {
 				ptr = strtok(NULL, delim);
@@ -1020,9 +1042,12 @@ int test(){
 			if(strcmp(ptr, "PUT") == 0) {
 				ptr = strtok(NULL, delim);
 				string local_file = (string) ptr;
+				printf("%s\n", local_file.c_str());
 				ptr = strtok(NULL, delim);
 				string sdfs_file = (string) ptr;
-				put(sdfs_file);
+				printf("%s\n", sdfs_file.c_str());
+				put(local_file, sdfs_file);
+				msg = "OK";
 			}
 		}
 		//if introducer sent update information about its neighbor
@@ -1075,7 +1100,7 @@ int send_file_names(int sock) {
 }
 
 int file_server() {
-	int server_fd, new_server_fd;
+	int server_fd;
 	struct sockaddr_in addr;
 	
 	string result;
@@ -1090,7 +1115,7 @@ int file_server() {
 
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(PORT_FILE);
+	addr.sin_port = htons(PORT_FILE + myinfo.id);
 
 	//bind socket to the address
 	if(::bind(server_fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
@@ -1098,21 +1123,23 @@ int file_server() {
 		exit(1);
 	}
 
-	char received_info[BUFFER_SIZE] = {0}; 
-	if(listen(server_fd, QUEUE_SIZE) < 0) {
-		perror("[Error]: Fail to listen to incoming connections");
-		exit(1);
-	}
-	new_server_fd = accept(server_fd, (struct sockaddr *)&addr, (socklen_t*)&addrlen);
-	if(new_server_fd < 0) {
-		perror("[Error]: Fail to accept to incoming connections");
-		exit(1);
-	}
+	
 
 	while(true){
+		int new_server_fd;
+		char received_info[BUFFER_SIZE] = {0}; 
+		if(listen(server_fd, QUEUE_SIZE) < 0) {
+			perror("[Error]: Fail to listen to incoming connections");
+			exit(1);
+		}
+		new_server_fd = accept(server_fd, (struct sockaddr *)&addr, (socklen_t*)&addrlen);
+		if(new_server_fd < 0) {
+			perror("[Error]: Fail to accept to incoming connections");
+			exit(1);
+		}
 		//read the request
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-		printf("\nThe order received is: %s\n", received_info);
+		printf("(file server)The order received is: %s\n", received_info);
 		vector<string> received_vector = split(received_info, " ");
 		string file_name = received_vector[1];
 
@@ -1121,9 +1148,13 @@ int file_server() {
 			string cmd = "rm "+file_name;
 			popen(cmd.c_str(), "r");
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			send_file(file_name, new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"PUT")==0) {
-			get_file(received_vector[2], new_server_fd);
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			get_file(received_vector[1], new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"SEND_DUPICATE")==0) {
 			send_dup(received_vector[1], stoi(received_vector[2]));
 			string msg = "OK";
@@ -1133,8 +1164,9 @@ int file_server() {
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
 		}
+		close(new_server_fd);
 	}
-	close(new_server_fd);
+	
 	return 0;
 }
 
@@ -1218,13 +1250,17 @@ int getServers() {
     const int LINE_LENGTH = 100; 
     char str[LINE_LENGTH];  
     int line = 0;
-    while( fin.getline(str,LINE_LENGTH) && line < 10) {    
+    while( fin.getline(str,LINE_LENGTH) && line < 10) {  
+
         vector<string> v = split(str, " ");
-        serverlist[line + 1].id = stoi(v[0]);
-        serverlist[line + 1].addr = v[1];
-        serverlist[line + 1].hostname = v[2];
-        serverlist[line + 1].port = PORT_FILE + stoi(v[0]);
+        server_para sp;
+
+        sp.id = stoi(v[0]);
+        sp.addr = v[1];
+        sp.hostname = v[2];
+        sp.port = PORT_FILE + stoi(v[0]);
         // printf("id ip %d %s\n", stoi(v[0]), v[1].c_str());
+        serverlist[line] = sp;
         line++;
     }
     return 0;
@@ -1235,12 +1271,18 @@ int main(int argc, char const *argv[]) {
 	//Set id
 	init_para(argc, argv);
 	neighbors = new server_para[NUM_NBR];
+	serverlist = new server_para[10];
 	myinfo.status = 0; //status = leave until test says join
 
 	//Connect to Introducer
     //int sock;
     int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
+
+    getServers();
+    master_server = serverlist[1];
+    master_server.port = PORT_MASTER + master_server.id - 1;
+    printf("Master is Machine %d\n", master_server.id);
     
     //*** For texture Hostname
     //if (connect_by_host(sock, introducer, SOCK_STREAM)<0){

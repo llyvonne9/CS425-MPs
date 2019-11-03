@@ -132,30 +132,26 @@ vector<string> split (string s, string delimiter) {
 
 //Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
-    if (argc != 3 && argc != 4){
-        printf("use paramer: id (ip) command(JOIN/LEAVE/INFO/store/ls)");
-    }
+    // if (argc != 3 && argc != 4){
+    //     printf("use paramer: id (ip) command(JOIN/LEAVE/INFO/store/ls)");
+    // }
     node.port = PORT_TEST + stoi(argv[1]);
-    // node.addr = (string) argv[2];
-    // cmd = "TEST "+(string) argv[3];
-    printf("argc %d\n", argc);
-    if(argc < 4) {
-        node.addr = id_to_ip.find(stoi(argv[1]))->second;
-        cmd = "TEST "+ (string) argv[2];
-    } else {
-        node.addr = (string) argv[2];
-        string action = (string) argv[3];
-        if(strcmp(action.c_str(), "JOIN") == 0 || strcmp(action.c_str(), "LEAVE") == 0 || strcmp(action.c_str(), "INFO") == 0) cmd = "TEST "+ action;
-        else if(strcmp(action.c_str(), "GET") == 0) {
-            cmd = "TEST " + action + " "+ (string) argv[4] + " " + (string) argv[5];
-        }else if(strcmp(action.c_str(), "PUT") == 0) {
-            cmd = "TEST " + action + " "+ (string) argv[4];
-        }else if(strcmp(action.c_str(), "DELETE") == 0) {
-            cmd = "TEST " + action + " "+ (string) argv[4];
-        } else if(strcmp(action.c_str(), "ls") == 0) {
-            cmd = "TEST " + action + " "+ (string) argv[4];
-        }
+    string action = (string) argv[2];
+    
+    node.addr = id_to_ip.find(stoi(argv[1]))->second;
+    cmd = "TEST "+ (string) argv[2];
+        
+    if(strcmp(action.c_str(), "JOIN") == 0 || strcmp(action.c_str(), "LEAVE") == 0 || strcmp(action.c_str(), "INFO") == 0) cmd = "TEST "+ action;
+    else if(strcmp(action.c_str(), "GET") == 0) {
+        cmd = "TEST " + action + " "+ (string) argv[3] + " " + (string) argv[4];
+    }else if(strcmp(action.c_str(), "PUT") == 0) {
+        cmd = "TEST " + action + " "+ (string) argv[3] + " "+ (string) argv[4];
+    }else if(strcmp(action.c_str(), "DELETE") == 0) {
+        cmd = "TEST " + action + " "+ (string) argv[3];
+    } else if(strcmp(action.c_str(), "ls") == 0) {
+        cmd = "TEST " + action + " "+ (string) argv[3];
     }
+
     return 0;
 }
 
@@ -179,7 +175,8 @@ int main(int argc, char const *argv[]) {
     int valread; 
     char recv_info[BUFFER_SIZE] = {0}; 
 
-    struct sockaddr_in serv_addr;   
+    struct sockaddr_in serv_addr;  
+    // printf("%s %d\n", node.addr.c_str(), node.port); 
     init_socket_para(serv_addr, node.addr.c_str(), node.port);
     if (connect_socket(node.sock, serv_addr)<0){node.status = -1; return -1;}
     cout<<"node= "<<node.addr<<":"<<node.port<<"\n";
