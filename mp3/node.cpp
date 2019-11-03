@@ -985,21 +985,23 @@ int put(string local_file, string target_file) {
 		string YESNO = "";
 		while ((YESNO != "YES") && (YESNO != "NO")){
 			cout << "The update is less than one min. Do you want to continue?(YES/NO)";
-			// cin >> YESNO;
-			fd_set fds;
-			FD_ZERO(&fds);
-			FD_SET(STDIN_FILENO, &fds);
-			timeval timeout;
-			timeout.tv_sec = 35;   // A five-second timeout
-			timeout.tv_usec = 0;
+			cin >> YESNO;
+			// struct pollfd poller;
+			// poller.fd = STDIN_FILENO;
+			// poller.events = POLLIN;
+			// poller.revents = 0;
 
-			int rc = select(STDIN_FILENO + 1, &fds, nullptr, nullptr, &timeout);
-			if (rc == 0)
-			{
-			    printf("Timeout\n");
-			} else {
-			    cin >> YESNO;
-			}
+			// int rc = poll(&poller, 1, 5);  // Poll one descriptor with a five second timeout
+			// if (rc < 0)
+			//     perror("select");
+			// else if (rc == 0)
+			// {
+			//     printf("Timeout\n");
+			// }
+			// else
+			// {
+			//     cin >> YESNO;
+			// }
 		}
 		send(sock_confim, YESNO.c_str(), YESNO.length(), 0);
 		printf("%s\n", YESNO.c_str());
