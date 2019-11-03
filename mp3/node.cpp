@@ -665,49 +665,65 @@ int master() {
 					printf("File exists\n");
 					long cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					long confirmed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-
+					string update_confirm_msg = "LESS1MIN";
 					if((cur_time - file_map[file_name].timestamp) < MIN_UPDATE_DURATION ) {
-						string update_confirm_msg = "LESS1MIN";
+						
 						send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
 						struct pollfd fd;
 						int ret;
 						fd.fd = new_server_fd; //  socket handler 
 						fd.events = POLLIN;
-						ret = poll(&fd, 30, 1000); // 30 second for timeout
+						ret = poll(&fd, 1, 30000); // 30 second for timeout
 						switch (ret) {
 						    case -1:
 						        // Error
+						    	printf("case 0\n");
 						        break;
 						    case 0:
 						        // Timeout
-						    	update_confirm_msg = "NO";
-								send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
+						    	printf("Timeout\n");
+						    	msg = "NO";
+								send(new_server_fd, msg.c_str(), msg.length(), 0);
+								printf("Master received confimation %s\n", msg.c_str());
+								printf("Update denied\n");
+								// send(new_server_fd, msg.c_str(), msg.length(), 0);
+								close(new_server_fd);
+								update_confirm_msg = "TIMEOUT";
 						        break;
 						    default:
-						        recv(new_server_fd,received_info,sizeof(received_info), 0); // get  data
-						        update_confirm_msg = received_info;
-						        break;
-						        // add 4 nodes to update_confirm_msg and send back
-
+						    	char confirm_info[BUFFER_SIZE] = {0}; 
+						        recv(new_server_fd,confirm_info,sizeof(confirm_info), 0); // get  data
+						        update_confirm_msg = confirm_info;
+						        printf("Master received confimation %s\n", update_confirm_msg.c_str());
 						        break;
 						}
 
 
-					} else {
+					} 
+					// else {
+					// 	string replicas = "";
+					// 	map<string, file_para>::iterator it;
+					// 	for(it = file_map.begin(); it!=file_map.end(); it++)  {
+					// 		if(replicas.length() == 0) replicas += it -> first;
+					// 		else replicas += " " + it -> first;
+					// 	}
+
+					// }
+					if(strcmp(update_confirm_msg.c_str(), "YES") == 0) {
 						string replicas = "";
-						map<string, file_para>::iterator it;
-						for(it = file_map.begin(); it!=file_map.end(); it++)  {
-							if(replicas.length() == 0) replicas += it -> first;
-							else replicas += " " + it -> first;
+						set<int>::iterator it;
+						for(it = file_map[file_name].nodes.begin(); it!=file_map[file_name].nodes.end(); it++)  {
+							if(replicas.length() == 0) replicas += to_string(*it);
+							else replicas += " " + to_string(*it);
 						}
-
+						printf("[Update] Master sent msg: %s\n", replicas.c_str());
+						msg = replicas;
+					} else {
+						
+						printf("[Update] master denied with msg: %s\n", update_confirm_msg.c_str());
+						msg = "NO";
 					}
-					string replicas = "";
-					set<int>::iterator it;
-					for(it = file_map[file_name].nodes.begin(); it!=file_map[file_name].nodes.end(); it++)  {
-						if(replicas.length() == 0) replicas += *it;
-						else replicas += " " + to_string(*it);
-					}
+					
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
@@ -720,16 +736,6 @@ int master() {
 
 					msg = "";
 				} else {
-					// for (auto ele: file_map[file_name]){
-						// msg = "DELETE "+ file_name;
-						// set<int> nodes = (file_map.find(file_name) -> second).nodes;
-						// set<int>::iterator it;
-						// for(it = nodes.begin(); it!= nodes.end(); it++)  {
-						// 	send_msg(msg, serverlist[(int)(*it) - 1]);
-						// }
-
-						
-					// }
 					string replicas = "";
 					set<int>::iterator it;
 					for(it = file_map[file_name].nodes.begin(); it!=file_map[file_name].nodes.end(); it++)  {
@@ -741,21 +747,7 @@ int master() {
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
-			} else if(strcmp(received_info_vec[0].c_str(), "LS_SDFS") == 0) {
-				string file_name = received_info_vec[1];
-				printf("Master LS %s\n", file_name.c_str());
-				string replicas = "";
-				set<int>::iterator it;
-				for(it = file_map[file_name].nodes.begin(); it!=file_map[file_name].nodes.end(); it++)  {
-					printf("%d\n", *it);
-					if(replicas.length() == 0) replicas += to_string(*it);
-					else replicas += " " + to_string(*it);
-				}
-				msg = replicas;
-				send(new_server_fd, msg.c_str(), msg.length(), 0);
-				close(new_server_fd);
 			}
-
 			
 		}
 
@@ -928,24 +920,56 @@ int put(string local_file, string target_file) {
 	// to master
 	string msg = "PUT_SDFS "+target_file;
 	printf("Send put to master %s\n", msg.c_str());
-	send_msg(msg, master_server);
+
+	int valread; 
+	int sock_confim;
+    char recv_info[BUFFER_SIZE] = {0}; 
+
+    struct sockaddr_in serv_addr; 	
+	init_socket_para(serv_addr, master_server.addr.c_str(), master_server.port);
+    if (connect_socket(sock_confim, serv_addr)<0){master_server.status = -1; return -1;}
+
+    send(sock_confim, msg.c_str(), msg.length(), 0);
+    printf("cmd sent %s \n ", msg.c_str());
+
+	valread = read(sock_confim, recv_info, BUFFER_SIZE);
+	recv_info[valread] = '\0';
+	printf("\nThe info received from master is: %s\n", recv_info); //neighbor leave (join might be optional)
+
+	msg = string(recv_info);
+	printf("(Put) Node received info %s\n", msg.c_str());
+ //    close(sock);
+	// return 0;
+
+
+	// send_msg(msg, master_server);
 	char delim[] = " ";
 	char *dup = strdup(msg.c_str());
 	char *ptr = strtok(dup, delim); 
 	free(dup);
 	if (strcmp(ptr, "LESS1MIN") == 0){
 		string YESNO = "";
-		while ((YESNO != "YES") && (YESNO != "NO")){
+		while ((YESNO != "YES") && (YESNO != "NO") && ((YESNO == "YES" || YESNO == "NO)") && send(sock_confim, YESNO.c_str(), YESNO.length(), 0))){
 			cout << "The update is less than one min. Do you want to continue?(YES/NO)";
 			cin >> YESNO;
+			if(YESNO.length() != 0) break;
 		}
-		send_msg(YESNO, master_server);
+		// send(sock_confim, YESNO.c_str(), YESNO.length(), 0);
+		printf("%s\n", YESNO.c_str());
 		if (YESNO == "NO"){	//either timeout or cin is NO.
+			printf("User withdraw update. \n");
+			close(sock_confim);
 			return 0;
 		} else{
-			ptr = strtok(NULL, delim); 
+			// ptr = strtok(NULL, delim); 
+			read(sock_confim, recv_info, BUFFER_SIZE);
+			msg = recv_info;
+			
 		}
-	}
+	} 
+	
+	close(sock_confim);
+	
 	// ids = [stoi(ptr), stoi(strtok(NULL,delim)), stoi(strtok(NULL,delim))]; //3 other copies, revise this later
 	vector<string> ids = split(msg, " ");
 	//to node
@@ -973,11 +997,11 @@ int put(string local_file, string target_file) {
 	    printf("cmd sent %s \n ", msg.c_str());
 
 		char buffer[BUFFER_SIZE] = {0};
-		printf("[PUT]send file\n"); 
+		printf("(PUT) send file\n"); 
 
 		valread = read(sock , buffer, BUFFER_SIZE) < 0;
 
-		printf("[PUT]received %s before sending file\n", buffer);
+		printf("(PUT)received %s before sending file\n", buffer);
 		string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
 		int total_sent = send_file(local_file, sock);
 
@@ -994,9 +1018,10 @@ int put(string local_file, string target_file) {
 		close(sock);
 		*/
 
-	    printf("PUT finished. Total sent bytes: %d", total_sent);
+	    // printf("PUT finished. Total sent bytes: %d\n\n", total_sent);
 	    close(sock);
 	}
+	
 	// myfile.close();
 	return 0;
 }
@@ -1125,6 +1150,7 @@ int test(){
 							string dir = DIR_SDFS + to_string(myinfo.id);
 							string cmd = "rm "+ dir + "/" + target_file;
 							popen(cmd.c_str(), "r");
+							sdfs_file_set.erase(target_file);
 							ok_count++;
 						}
 						
@@ -1259,6 +1285,7 @@ int file_server() {
 			popen(cmd.c_str(), "r");
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			sdfs_file_set.erase(file_name);
 			printf("%s is deleted successfully\n\n", file_name.c_str());
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
 			string msg = "OK";
