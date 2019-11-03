@@ -506,6 +506,15 @@ int init_para(int argc, char const *argv[]){
 		cout << "Need one parameter: id";
 		return -1;
 	}
+
+	//create local dir
+	try {
+	    string dir = DIR_SDFS + to_string(myinfo.id);
+		string cmd = "mkdir "+ dir;
+		popen(cmd.c_str(), "r");
+	} catch (std::exception const &e) {
+		
+	}
 	return 0;
 }
 
