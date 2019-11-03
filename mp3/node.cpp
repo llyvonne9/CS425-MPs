@@ -588,15 +588,16 @@ int master() {
 				string file_name = received_info_vec[1];
 				string msg = "";
 
-				map<string, file_para>::iterator it;
-				for(it = file_map.begin(); it!=file_map.end(); it++)  {
-					printf("%s\n", (it -> first).c_str()); ;
-				}
-
 				if(!check_file_exists(file_name)) {
 					msg = "[GET RESULT] The file does not exit.";
 				} else {
-					msg = *((file_map.find(file_name)->second).nodes).begin();;
+					int id;
+					set<int> ns = (file_map.find(file_name)->second).nodes;
+					set<int>::iterator it;
+					for(it = ns.begin(); it!=ns.end(); it++)  {
+						id = *it;
+					}
+					msg = to_string(id);
 					printf("[GET] master to node. msg: %s\n", msg.c_str());
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
@@ -734,7 +735,7 @@ int delete_file(string file_name) {
 }
 
 int send_file(string file_name, int sock){
-	printf("send_file\n");
+
 	FILE *fp = fopen(file_name.c_str(), "rb");
 	char buffer[BUFFER_SIZE];
 	int length = 0, total_len = 0, n_sent=0;
@@ -799,6 +800,7 @@ int get_file(string sdfs_name, int sock){
     // printf("%s\n", res.c_str());
     myfile.close();
     close(sock);
+    sdfs_file_set.insert(sdfs_name);
     return 0;
 
 }
@@ -876,6 +878,7 @@ int get(string sdfs_filename, string local_filename) {
     printf("GET finished. Total received bytes: %lu", res.length());
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
     myfile.close();
+    sdfs_file_set.insert(sdfs_filename);
     return 0;
 
 }
@@ -1150,7 +1153,8 @@ int file_server() {
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
-			send_file(file_name, new_server_fd);
+			string dir = DIR_SDFS + to_string(myinfo.id);
+			send_file(dir + "/" + file_name, new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"PUT")==0) {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
