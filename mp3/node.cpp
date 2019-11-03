@@ -683,22 +683,30 @@ int master() {
 					
 
 
-			} else if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0) {
+			} else if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0 || strcmp(received_info_vec[0].c_str(), "LS_SDFS") == 0) {
 				string file_name = received_info_vec[1];
 				if(!check_file_exists(file_name)) {
 
-					msg = "NOT OK";
+					msg = "";
 				} else {
 					// for (auto ele: file_map[file_name]){
-						msg = "DELETE "+file_name;
-						set<int> nodes = (file_map.find(file_name) -> second).nodes;
-						set<int>::iterator it;
-						for(it = nodes.begin(); it!= nodes.end(); it++)  {
-							send_msg(msg, serverlist[(int)(*it) - 1]);
-						}
+						// msg = "DELETE "+ file_name;
+						// set<int> nodes = (file_map.find(file_name) -> second).nodes;
+						// set<int>::iterator it;
+						// for(it = nodes.begin(); it!= nodes.end(); it++)  {
+						// 	send_msg(msg, serverlist[(int)(*it) - 1]);
+						// }
+
 						
 					// }
-					msg = "OK";
+					string replicas = "";
+					set<int>::iterator it;
+					for(it = file_map[file_name].nodes.begin(); it!=file_map[file_name].nodes.end(); it++)  {
+						printf("%d\n", *it);
+						if(replicas.length() == 0) replicas += to_string(*it);
+						else replicas += " " + to_string(*it);
+					}
+					msg = replicas;
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
@@ -970,7 +978,7 @@ int ls(string file_name) {
 	send_msg(msg, master_server);
 	vector<string> nodes = split(msg, " ");
 	if(nodes.size() == 0) {
-		printf("The file is not in the system. \n");
+		printf("%s is not in the system. \n", file_name.c_str());
 		return 0;
 	}
 	printf("Mahines store %s are: \n", file_name.c_str());
@@ -1071,6 +1079,30 @@ int test(){
 				//tell master to delete file
 				msg = "DELETE_SDFS " + target_file;
 				send_msg(msg, master_server);
+				if(msg.length() == 0) printf("%s does not exist in the system.\n", target_file.c_str());
+				else {
+					string cmd = "DELETE " + target_file;
+					vector<string> nodes = split(msg, " ");
+					int ok_count = 0;
+					for(int i = 0; i < nodes.size(); i++) {
+						int id = stoi(nodes[i]);
+						cmd = "DELETE " + target_file;
+						if(id != myinfo.id) {
+							send_msg(cmd, serverlist[id - 1]);
+							if(strcmp(cmd.c_str(), "OK") == 0) ok_count++;
+						} else {
+							string dir = DIR_SDFS + to_string(myinfo.id);
+							string cmd = "rm "+ dir + "/" + target_file;
+							popen(cmd.c_str(), "r");
+							ok_count++;
+						}
+						
+					}
+					printf("Deleted %d copies\n", ok_count);
+					if(ok_count == REPLICA) msg = "OK";
+					else msg = "NOT OK";
+				}
+
 			}
 			if(strcmp(ptr, "PUT") == 0) {
 				ptr = strtok(NULL, delim);
@@ -1194,6 +1226,9 @@ int file_server() {
 			string dir = DIR_SDFS + to_string(myinfo.id);
 			string cmd = "rm "+ dir + "/" + file_name;
 			popen(cmd.c_str(), "r");
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			printf("%s is deleted successfully\n\n", file_name.c_str());
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
