@@ -148,7 +148,7 @@ int init_para(int argc, char const *argv[]){
         cmd = "TEST " + action + " "+ (string) argv[3] + " "+ (string) argv[4];
     }else if(strcmp(action.c_str(), "DELETE") == 0) {
         cmd = "TEST " + action + " "+ (string) argv[3];
-    } else if(strcmp(action.c_str(), "ls") == 0) {
+    } else if(strcmp(action.c_str(), "LS") == 0) {
         cmd = "TEST " + action + " "+ (string) argv[3];
     }
 

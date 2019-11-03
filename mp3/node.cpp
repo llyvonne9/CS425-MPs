@@ -704,9 +704,11 @@ int master() {
 				close(new_server_fd);
 			} else if(strcmp(received_info_vec[0].c_str(), "LS_SDFS") == 0) {
 				string file_name = received_info_vec[1];
+				printf("Master LS %s\n", file_name.c_str());
 				string replicas = "";
 				set<int>::iterator it;
 				for(it = file_map[file_name].nodes.begin(); it!=file_map[file_name].nodes.end(); it++)  {
+					printf("%d\n", *it);
 					if(replicas.length() == 0) replicas += to_string(*it);
 					else replicas += " " + to_string(*it);
 				}
@@ -961,6 +963,24 @@ int put(string local_file, string target_file) {
 }
 
 
+int ls(string file_name) {
+	printf("[node to master]ls:\n");
+	string msg = "LS_SDFS "+file_name;
+	printf("msg: %s\n", msg.c_str());
+	send_msg(msg, master_server);
+	vector<string> nodes = split(msg, " ");
+	if(nodes.size() == 0) {
+		printf("The file is not in the system. \n");
+		return 0;
+	}
+	printf("Mahines store %s are: \n", file_name.c_str());
+	for(int i = 0; i < nodes.size(); i++) {
+		printf("Mahine %s\n", nodes[i].c_str());
+	}
+	return 0;
+}
+
+
 int store() {
 	set<string>::iterator it;
 	printf("Result of store: \n");
@@ -1065,6 +1085,14 @@ int test(){
 
 			if(strcmp(ptr, "STORE") == 0) {
 				store();
+				msg = "OK";
+			} 
+
+			if(strcmp(ptr, "LS") == 0) {
+				printf("node TEST LS\n");
+				ptr = strtok(NULL, delim);
+				string file_name = (string) ptr;
+				ls(file_name);
 				msg = "OK";
 			} 
 		}
@@ -1191,20 +1219,6 @@ int file_server() {
 }
 
 
-int ls(string file_name) {
-	string msg = "LS_SDFS "+file_name;
-	send_msg(msg, master_server);
-	vector<string> nodes = split(msg, " ");
-	if(nodes.size() == 0) {
-		printf("The file is not in the system. \n");
-		return 0;
-	}
-	printf("Nodes store this file are: \n");
-	for(int i = 0; i < nodes.size(); i++) {
-		printf("%s\n", nodes[i].c_str());
-	}
-	return 0;
-}
 //deal with all messages received from introducer //depleted
 int intro_update(int sock){ 
     int valread; 
