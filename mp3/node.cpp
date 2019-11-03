@@ -232,28 +232,32 @@ int re_replica(int id) {
 	return 0;
 }
 
+int add_file2node(string file_name, int id){
+	if(check_file_exists(file_name)) {
+		file_map[file_name].nodes.insert(id);
+	} else {
+		file_para fp;
+		fp.name = file_name;
+		fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		set<int> set;
+		set.insert(id);
+		fp.nodes = set;
+		file_map.insert({fp.name, fp});
+	}
+
+	(files_per_node.find(id)->second).insert(file_name);
+}
+
 int master_init() {
 	string msg = "COLLECT_SDFS";
 	for(int i = 1; i < 11; i++) {
 		send_msg(msg, serverlist[i - 1]);
 
 		vector<string> files = split(msg, " ");
+		set<string> set;
+		files_per_node.insert({i, set});
 		for(int j = 0; j < files.size(); j++) {
-			if(check_file_exists(files[j])) {
-				file_map[files[j]].nodes.insert(i);
-			} else {
-				file_para fp;
-				fp.name = files[j];
-				fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			}
-
-			if(j == 0) {
-				set<string> set;
-				set.insert(files[j]);
-				files_per_node.insert({i, set});
-			} else {
-				(files_per_node.find(i)->second).insert(files[j]);
-			}
+			add_file2node(files[j], i);
 		}
 	}
 
@@ -280,6 +284,27 @@ int master_init() {
 	return 0;
 
 
+}
+
+int node_quit_proc(int id){
+	membership_list.erase(id);
+	if (id==master_id){
+		bool am_I_master = true;
+		for (auto it: membership_list){
+			if (it < myinfo.id){
+				am_I_master = false;
+			}
+		}
+		if (am_I_master){
+			master_id = myinfo.id;
+
+			master_init(); //TODO: build file table (public var)
+		}
+	}
+	printf("fail_id:%d, master_id:%d, myinfo.id:%d\n", id, master_id, myinfo.id);
+	if (master_id == myinfo.id){ //I'm the master
+		re_replica(id);
+	}
 }
 
 // send heartbeat to the neighbor with the address IP
@@ -424,6 +449,7 @@ int monitor(){ //UDP monitor heartbeat
 
 		        	if ((new_master_id != master_id) && (cur_id == new_master_id)){
 		        		master_id = new_master_id;
+		        		printf("new master is %d\n", master_id);
 		        	}
 
 		        	mem_hb_map.find(cur_id)->second = cur_hb;
@@ -437,22 +463,7 @@ int monitor(){ //UDP monitor heartbeat
 		        		membership_list.erase(cur_id);
 		        		need_update = true;
 
-		        		if (cur_id==master_id){
-		        			bool am_I_master = true;
-		        			for (auto it: membership_list){
-		        				if (it < myinfo.id){
-		        					am_I_master = false;
-		        				}
-		        			}
-		        			if (am_I_master){
-		        				master_id = myinfo.id;
-
-		        				master_init(); //TODO: build file table (public var)
-		        			}
-		        		}
-		        		if (master_id == myinfo.id){ //I'm the master
-		        			re_replica(cur_id);
-		        		}
+		        		node_quit_proc(cur_id);
 		        	}
 		        }
 
@@ -513,7 +524,7 @@ int init_para(int argc, char const *argv[]){
 		string cmd = "mkdir "+ dir;
 		popen(cmd.c_str(), "r");
 	} catch (std::exception const &e) {
-		
+
 	}
 	return 0;
 }
@@ -1063,6 +1074,7 @@ int store() {
 	printf("\n");
 	return 0;
 }
+
 //listen to test command
 int test(){
 	int server_fd;
@@ -1215,7 +1227,7 @@ int test(){
 			if(status == 1) {
 				membership_list.insert(id);
 			} else {
-				membership_list.erase(id);
+				node_quit_proc(id);
 			}
 			mem_hb_map.find(id) -> second = mem_hb_map.find(id) -> second + 1;
 
@@ -1432,7 +1444,7 @@ int main(int argc, char const *argv[]) {
     char recv_info[BUFFER_SIZE] = {0}; 
 
     getServers();
-    master_server = serverlist[0];
+    master_server = serverlist[1];
     master_server.port = PORT_MASTER + master_server.id - 1;
     printf("Master is Machine %d\n", master_server.id);
     
@@ -1489,9 +1501,9 @@ int main(int argc, char const *argv[]) {
 							cout << "case 1";
 							neighbors[i].status = -1;
 							membership_list.erase(neighbors[i].id);
-							if(myinfo.id == master_id) {
-								re_replica(neighbors[i].id);
-							}
+							//if(myinfo.id == master_id) {
+							//	re_replica(neighbors[i].id);
+							//}
 							mem_hb_map.find(neighbors[i].id) -> second = mem_hb_map.find(neighbors[i].id) -> second + 1;
 							//string cmd = "LEAVE_"+id+"_"+i;
 							char tmp[32] = {};
@@ -1506,6 +1518,8 @@ int main(int argc, char const *argv[]) {
 							for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
 								printf("Machine %d \n", *it);
 							}
+
+							node_quit_proc(neighbors[i].id);
 						}
 					} else{
 						// If we hear heartbeat from an "inactive"node, restore its active status
