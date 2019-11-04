@@ -474,14 +474,22 @@ int monitor(){ //UDP monitor heartbeat
 		        int cur_id = (stoi(v[i]));
 		        int cur_hb = (stoi(v[i + 1]));
 		        int cur_status = (stoi(v[i + 2]));
+
+		        if (membership_list.find(master_id) == membership_list.end()){
+		        	master_id = cur_id;
+		        	printf("new master is %d\n", master_id);
+		        	master_server = serverlist[master_id - 1];
+		        	master_server.port = PORT_MASTER + master_server.id - 1;
+		        }
+
 		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
 
-		        	if ((new_master_id != master_id) && (myinfo.id != master_id)){
-		        		master_id = new_master_id;
-		        		printf("new master is %d\n", master_id);
-		        		master_server = serverlist[master_id - 1];
-		        		master_server.port = PORT_MASTER + master_server.id - 1;
-		        	}
+		        	// if ((new_master_id != master_id) && (myinfo.id != master_id)){
+		        	// 	master_id = new_master_id;
+		        	// 	printf("new master is %d\n", master_id);
+		        	// 	master_server = serverlist[master_id - 1];
+		        	// 	master_server.port = PORT_MASTER + master_server.id - 1;
+		        	// }
 
 		        	mem_hb_map.find(cur_id)->second = cur_hb;
 		        	if(cur_status == 1 && membership_list.find(cur_id) == membership_list.end()) {
@@ -801,10 +809,14 @@ int master() {
 						if(replicas.length() == 0) replicas += to_string(*it);
 						else replicas += " " + to_string(*it);
 					}
-					msg = replicas;
-					std::map<string,file_para>::iterator map_it;
-					map_it=file_map.find(file_name);
-	  				file_map.erase (map_it);
+
+					if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0) {
+						msg = replicas;
+						std::map<string,file_para>::iterator map_it;
+						map_it=file_map.find(file_name);
+		  				file_map.erase (map_it);
+					}
+					
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
@@ -1561,6 +1573,7 @@ int main(int argc, char const *argv[]) {
     if (myinfo.id == master_id) {master_init();}
     master_server.port = PORT_MASTER + master_server.id - 1;
     printf("Master is Machine %d\n", master_server.id);
+    printf("Node Id: %d\n", myinfo.id);
     
     //*** For texture Hostname
     //if (connect_by_host(sock, introducer, SOCK_STREAM)<0){
