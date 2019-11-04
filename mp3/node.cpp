@@ -484,7 +484,7 @@ int monitor(){ //UDP monitor heartbeat
 
 		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
 
-		        	if ((new_master_id != master_id) && (myinfo.id != master_id)){
+		        	if (new_master_id != master_id){
 		        		master_id = new_master_id;
 		        		printf("new master is %d\n", master_id);
 		        		master_server = serverlist[master_id - 1];
