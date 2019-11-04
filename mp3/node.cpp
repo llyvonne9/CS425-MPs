@@ -839,7 +839,7 @@ int send_file(string file_name, int sock){
 int get_file(string sdfs_name, int sock){
 	int valread;
 	string dir = DIR_SDFS + to_string(myinfo.id);
-	FILE *fp = fopen(dir + "/" + sdfs_name.c_str(), "wb");
+	FILE *fp = fopen((dir + "/" + sdfs_name).c_str(), "wb");
 	char buffer[BUFFER_SIZE];
 	int length = 0, total_len = 0;
 
@@ -882,7 +882,6 @@ int get_file(string sdfs_name, int sock){
  //    // printf("%s\n", res.c_str());
  //    myfile.close();
  //    close(sock);
-    sdfs_file_set.insert(sdfs_name);
     return 0;
 
 }
@@ -944,8 +943,9 @@ int get(string sdfs_filename, string local_filename) {
     // int total_len = get_filea(dir + "/" + target_file, sock);
     // printf("total receive %d bits", total_len);
 
-    
-	char buffer[BUFFER_SIZE] = {0}; 
+    get_file(local_filename, sock);
+
+	/*char buffer[BUFFER_SIZE] = {0}; 
 	string res = "";
     ofstream myfile;
     ofstream outfile (local_filename);
@@ -960,7 +960,7 @@ int get(string sdfs_filename, string local_filename) {
     myfile << res;
     printf("GET finished. Total received bytes: %lu", res.length());
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
-    myfile.close();
+    myfile.close();*/
     // sdfs_file_set.insert(sdfs_filename);
     return 0;
 
@@ -1402,6 +1402,7 @@ int file_server() {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			get_file(received_vector[1], new_server_fd);
+    		sdfs_file_set.insert(received_vector[1]);
 		} else if(strcmp(received_vector[0].c_str(),"SEND_DUPICATE")==0) {
 			send_dup(received_vector[1], stoi(received_vector[2]));
 			string msg = "OK";
