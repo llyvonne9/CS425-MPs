@@ -57,6 +57,7 @@ struct file_para{
 };
 
 int master_id = 2;
+int master_count = 0;
 
 int num_server = 0;
 string cmd = "";
@@ -308,6 +309,7 @@ int master_init() {
 
 	master_server = serverlist[myinfo.id - 1];
 	master_server.port = PORT_MASTER + master_server.id - 1;
+	master_count++;
 	cout<<"I'm the new master\n";
 	return 0;
 
@@ -396,7 +398,7 @@ int heartbeat(int idx){	//UDP send heartbeat to IP
 
 			hello += " MEMLIST" + mem_list;
 
-			hello += " "+ to_string(master_id); //consensus about the current master
+			hello += " "+ to_string(master_id)+ " "+ to_string(master_count); //consensus about the current master
 
 			// printf("heartbeat info: %s\n", hello.c_str());
 
@@ -468,9 +470,10 @@ int monitor(){ //UDP monitor heartbeat
 			// printf("Received heartbeat %s\n", buffer_str.c_str());
 			set<int> tmp_mem_list;
 			bool need_update = false;
-			int new_master_id =  stoi(v[v.size()-1]);
+			int new_master_id =  stoi(v[v.size()-2]);
+			int new_master_count =  stoi(v[v.size()-1]);
 			//for (int i = 3; i < v.size(); i += 3) {
-			for (int i = 3; i < v.size()-1; i += 3) {
+			for (int i = 3; i < v.size()-2; i += 3) {
 		        int cur_id = (stoi(v[i]));
 		        int cur_hb = (stoi(v[i + 1]));
 		        int cur_status = (stoi(v[i + 2]));
@@ -484,7 +487,7 @@ int monitor(){ //UDP monitor heartbeat
 
 		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
 
-		        	if (new_master_id != master_id){
+		        	if (new_master_id != master_id && new_master_count > master_count){
 		        		master_id = new_master_id;
 		        		printf("new master is %d\n", master_id);
 		        		master_server = serverlist[master_id - 1];
