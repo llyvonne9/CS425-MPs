@@ -261,6 +261,8 @@ int re_replica(int id) {	//make sure only master calls this function
 		//string msg = "COPY "+ file_name + " TO "+ to_string(trg_id);
 		add_file2node(file_name, trg_id);
 		string msg = "SEND_DUPICATE " + file_name + " " + to_string(trg_id);
+		nodes.insert(trg_id);
+		file_map[file_name].nodes = nodes;
 		cout<< "send "+to_string(src_id)+" a msg: "+msg + "\n";
 		send_msg(msg, serverlist[src_id-1]);
 	}
@@ -304,6 +306,8 @@ int master_init() {
 		}
 	}
 
+	master_server = serverlist[myinfo.id - 1];
+	master_server.port = PORT_MASTER + master_server.id - 1;
 	cout<<"I'm the new master\n";
 	return 0;
 
@@ -475,6 +479,8 @@ int monitor(){ //UDP monitor heartbeat
 		        	if ((new_master_id != master_id) && (myinfo.id != master_id)){
 		        		master_id = new_master_id;
 		        		printf("new master is %d\n", master_id);
+		        		master_server = serverlist[master_id - 1];
+		        		master_server.port = PORT_MASTER + master_server.id - 1;
 		        	}
 
 		        	mem_hb_map.find(cur_id)->second = cur_hb;
@@ -796,9 +802,13 @@ int master() {
 						else replicas += " " + to_string(*it);
 					}
 					msg = replicas;
+					std::map<string,file_para>::iterator map_it;
+					map_it=file_map.find(file_name);
+	  				file_map.erase (map_it);
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
+				
 			}
 			
 		}
@@ -1128,15 +1138,16 @@ int ls(string file_name) {
 	printf("[node to master]ls:\n");
 	string msg = "LS_SDFS "+file_name;
 	printf("msg: %s\n", msg.c_str());
+	printf("Master server: %d %d\n", master_server.id, master_server.port);
 	send_msg(msg, master_server);
 	vector<string> nodes = split(msg, " ");
-	if(nodes.size() == 0) {
+	if(msg.size() == 0 || nodes.size() == 0 ) {
 		printf("%s is not in the system. \n", file_name.c_str());
 		return 0;
 	}
-	printf("Mahines store %s are: \n", file_name.c_str());
+	printf("Machines store %s are: \n", file_name.c_str());
 	for(int i = 0; i < nodes.size(); i++) {
-		printf("Mahine %s\n", nodes[i].c_str());
+		printf("Machine %s\n", nodes[i].c_str());
 	}
 	return 0;
 }
