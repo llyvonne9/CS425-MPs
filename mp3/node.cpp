@@ -1022,7 +1022,6 @@ int put(string local_file, string target_file) {
 		} else if(YESNO == "") {
 			printf("User didn't response. Timeout. \n");
 			close(sock_confim);
-			printf("Close successfully\n");
 			return 0;
 		} else{
 			// ptr = strtok(NULL, delim); 
@@ -1036,6 +1035,8 @@ int put(string local_file, string target_file) {
 	} 
 	
 	close(sock_confim);
+
+	int put_count = 0;
 	
 	// ids = [stoi(ptr), stoi(strtok(NULL,delim)), stoi(strtok(NULL,delim))]; //3 other copies, revise this later
 	vector<string> ids = split(msg, " ");
@@ -1071,7 +1072,7 @@ int put(string local_file, string target_file) {
 		printf("(PUT)received %s before sending file\n", buffer);
 		string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
 		int total_sent = send_file(local_file, sock);
-
+		put_count++;
 		/*
 	    int total_sent = 0;
 		printf("result length=%lu\n",result.length());
@@ -1090,7 +1091,7 @@ int put(string local_file, string target_file) {
 	}
 	
 	// myfile.close();
-	return 0;
+	return put_count;
 }
 
 
@@ -1236,10 +1237,16 @@ int test(){
 				ptr = strtok(NULL, delim);
 				string sdfs_file = (string) ptr;
 				printf("%s\n", sdfs_file.c_str());
-				put(local_file, sdfs_file);
+				int put_count = put(local_file, sdfs_file);
 
-				msg = "OK";
-				printf("PUT %s\n", msg.c_str());
+				if(put_count == REPLICA) {
+					msg = "OK";
+					printf("PUT successfully\n");
+				}
+				else {
+					msg = "NOT OK";
+					printf("PUT fail");
+				}
 			} 
 
 			if(strcmp(ptr, "STORE") == 0) {
