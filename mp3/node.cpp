@@ -817,7 +817,6 @@ int delete_file(string file_name) {
 }
 
 int send_file(string file_name, int sock){
-
 	FILE *fp = fopen(file_name.c_str(), "rb");
 	char buffer[BUFFER_SIZE];
 	int length = 0, total_len = 0, n_sent=0;
@@ -825,7 +824,7 @@ int send_file(string file_name, int sock){
 		printf("File %s not found.\n", file_name.c_str());
 	} else {
 		bzero(buffer, BUFFER_SIZE);
-		while((length = fread(buffer, sizeof(char), BUFFER_SIZE, fp)) > 0) {
+		while((length = fread(buffer, sizeof(char), BUFFER_SIZE-1, fp)) > 0) {
 			if((n_sent = send(sock, buffer, length, 0)) < 0) {
 				printf("Send %s failed\n", file_name.c_str());
 				break;
@@ -836,12 +835,11 @@ int send_file(string file_name, int sock){
 		printf("Transfer Successfully. Total bytes: %d\n", total_len);
 	}
 	fclose(fp);
-	close(sock);
 	return 0;
 }
 
 int get_file(string sdfs_name, int sock){
-	int valread;
+
 	string dir = DIR_SDFS + to_string(myinfo.id);
 	FILE *fp = fopen((dir + "/" + sdfs_name).c_str(), "wb");
 	char buffer[BUFFER_SIZE];
@@ -852,17 +850,16 @@ int get_file(string sdfs_name, int sock){
 	} else {
 		bzero(buffer, BUFFER_SIZE);
 		while ((length = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
-	        if (length < BUFFER_SIZE-1){
-	            buffer[valread] = '\0';
-	        }
-	        fwrite(buffer, sizeof(char), BUFFER_SIZE, fp);
+	        //if (length < BUFFER_SIZE-1){
+	        //    buffer[length++] = '\0';
+	        //}
+	        fwrite(buffer, sizeof(char), length, fp);
 	        bzero(buffer, BUFFER_SIZE);
 	        total_len += length;
 	    }
-		printf("%d bytes are sent. Transfer Successfully. \n", total_len);
+		printf("%d bytes received. Transfer Successfully. \n", total_len);
 	}
 	fclose(fp);
-
 	// return total_len;
 	// int valread; 
 	// char buffer[BUFFER_SIZE] = {0}; 
@@ -914,6 +911,7 @@ int send_dup(string file_name, int id) {
 	string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
 	int total_sent = send_file(dir_sdfs +"/" + file_name, sock);
 
+	close(sock);
 	return 0;
 }
 
