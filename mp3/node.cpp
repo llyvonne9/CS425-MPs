@@ -475,8 +475,8 @@ int monitor(){ //UDP monitor heartbeat
 		        int cur_hb = (stoi(v[i + 1]));
 		        int cur_status = (stoi(v[i + 2]));
 
-		        if (membership_list.find(master_id) == membership_list.end()){
-		        	master_id = cur_id;
+		        if (membership_list.find(master_id) == membership_list.end() && (new_master_id != master_id)){
+		        	master_id = new_master_id;
 		        	printf("new master is %d\n", master_id);
 		        	master_server = serverlist[master_id - 1];
 		        	master_server.port = PORT_MASTER + master_server.id - 1;
