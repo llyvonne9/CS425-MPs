@@ -202,7 +202,7 @@ int send_msg(string& msg, struct server_para server){
     cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
 
     send(sock, msg.c_str(), msg.length(), 0);
-    printf("cmd to %d sent %s \n ", server.id, msg.c_str());
+    printf("send to %d a cmd %s \n ", server.id, msg.c_str());
 
 	valread = read(sock, recv_info, BUFFER_SIZE);
 	recv_info[valread] = '\0';
@@ -262,9 +262,9 @@ int re_replica(int id) {	//make sure only master calls this function
 }
 
 int master_init() {
-	string msg = "COLLECT_SDFS";
 	for(int i = 1; i < 11; i++) {
 		if(membership_list.find(i) != membership_list.end()) {
+			string msg = "COLLECT_SDFS";
 			send_msg(msg, serverlist[i - 1]);
 
 			vector<string> files = split(msg, " ");
@@ -285,7 +285,7 @@ int master_init() {
 				if(membership_list.find(i) != membership_list.end() && nodes.find(i) == nodes.end()) {
 					int sender = *nodes.begin(); 
 					string msg = "SEND_DUPICATE " + it->first + " " + to_string(i);
-					send_msg(msg, serverlist[i - 1]);
+					send_msg(msg, serverlist[nodes.begin()-1]);
 					if(strcmp(msg.c_str(), "OK") == 0) {
 						nodes.insert(i);
 						break;
@@ -695,8 +695,8 @@ int master() {
 					//fp.nodes = nodes;
 					//fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					//file_map.insert({file_name, fp});
-					//send(new_server_fd, msg.c_str(), msg.length(), 0);
-					//close(new_server_fd);
+					send(new_server_fd, msg.c_str(), msg.length(), 0);
+					close(new_server_fd);
 				} else {
 					//confirmation about update
 					//update
@@ -1511,7 +1511,7 @@ int main(int argc, char const *argv[]) {
     char recv_info[BUFFER_SIZE] = {0}; 
 
     getServers();
-    master_server = serverlist[master_id];
+    master_server = serverlist[master_id-1];
     if (myinfo.id == master_id) {master_init();}
     master_server.port = PORT_MASTER + master_server.id - 1;
     printf("Master is Machine %d\n", master_server.id);
