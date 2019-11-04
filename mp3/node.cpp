@@ -973,6 +973,8 @@ int put(string local_file, string target_file) {
     char recv_info[BUFFER_SIZE] = {0}; 
 
     struct sockaddr_in serv_addr; 	
+    printf("Master id %d\n", master_id);
+    printf("Master %s %d\n", master_server.addr.c_str(), master_server.port);
 	init_socket_para(serv_addr, master_server.addr.c_str(), master_server.port);
     if (connect_socket(sock_confim, serv_addr)<0){master_server.status = -1; return -1;}
 
@@ -1199,12 +1201,15 @@ int test(){
 				}
 			}
 			if(strcmp(ptr, "GET") == 0) {
+				long get_start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 				ptr = strtok(NULL, delim);
 				string sdfs_file = (string) ptr;
 				ptr = strtok(NULL, delim);
 				string local_file = (string) ptr;
 				get(sdfs_file, local_file);
 				msg = "OK";
+				long get_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+				printf("GET used %lu\n", (get_end - get_start));
 			}
 			if(strcmp(ptr, "DELETE") == 0) {
 				ptr = strtok(NULL, delim);
@@ -1241,6 +1246,7 @@ int test(){
 
 			}
 			if(strcmp(ptr, "PUT") == 0) {
+				long put_start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 				ptr = strtok(NULL, delim);
 				string local_file = (string) ptr;
 				printf("%s\n", local_file.c_str());
@@ -1257,6 +1263,9 @@ int test(){
 					msg = "NOT OK";
 					printf("PUT fail");
 				}
+
+				long put_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+				printf("Put used %lu\n", (put_end - put_start));
 			} 
 
 			if(strcmp(ptr, "STORE") == 0) {
@@ -1511,8 +1520,9 @@ int main(int argc, char const *argv[]) {
     char recv_info[BUFFER_SIZE] = {0}; 
 
     getServers();
-    master_server = serverlist[master_id];
-    if (myinfo.id == master_id) {master_init();}
+    // master_server = serverlist[master_id];
+    // if (myinfo.id == master_id) {master_init();}
+    master_server = serverlist[master_server.id - 1];
     master_server.port = PORT_MASTER + master_server.id - 1;
     printf("Master is Machine %d\n", master_server.id);
     
