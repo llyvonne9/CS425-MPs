@@ -75,7 +75,7 @@ map<int, int> mem_hb_map;
 set<string> sdfs_file_set;
 map<int, set<string>> files_per_node;
 map<string, file_para> file_map;
-int next_id = master_id == 1? 2: 1;
+int next_id = 1;
 
 /*
 int cur_rnd_idx = 0;
@@ -229,6 +229,7 @@ int add_file2node(string file_name, int id){
 	}
 	cout<<"okk\n";
 	files_per_node[id].insert(file_name);
+	return 0;
 }
 
 int re_replica(int id) {	//make sure only master calls this function
@@ -950,7 +951,7 @@ int get(string sdfs_filename, string local_filename) {
     printf("GET finished. Total received bytes: %lu", res.length());
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
     myfile.close();
-    sdfs_file_set.insert(sdfs_filename);
+    // sdfs_file_set.insert(sdfs_filename);
     return 0;
 
 }
