@@ -837,48 +837,51 @@ int send_file(string file_name, int sock){
 }
 
 int get_file(string sdfs_name, int sock){
-	// FILE *fp = fopen(sdfs_name, "wb");
-	// char buffer[BUFFER_SIZE];
-	// int length = 0, total_len = 0;
-	// if(fp == NULL) {
-	// 	printf("File %s not found.\n", file_name);
-	// } else {
-	// 	bzero(buffer, BUFFER_SIZE);
-	// 	while ((length = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
-	//         if (length < BUFFER_SIZE-1){
-	//             buffer[valread] = '\0';
-	//         }
-	//         fwrite(buffer, sizeof(char), BUFFER_SIZE, fp);
-	//         bzero(buffer, BUFFER_SIZE);
-	//         total_len += length;
-	//     }
-	// 	printf("Transfer Successfully. \n");
-	// }
-	// fclose(fp);
+	int valread;
+	string dir = DIR_SDFS + to_string(myinfo.id);
+	FILE *fp = fopen(dir + "/" + sdfs_name.c_str(), "wb");
+	char buffer[BUFFER_SIZE];
+	int length = 0, total_len = 0;
+
+	if(fp == NULL) {
+		printf("File %s not found.\n", sdfs_name.c_str());
+	} else {
+		bzero(buffer, BUFFER_SIZE);
+		while ((length = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
+	        if (length < BUFFER_SIZE-1){
+	            buffer[valread] = '\0';
+	        }
+	        fwrite(buffer, sizeof(char), BUFFER_SIZE, fp);
+	        bzero(buffer, BUFFER_SIZE);
+	        total_len += length;
+	    }
+		printf("%d bytes are sent. Transfer Successfully. \n", total_len);
+	}
+	fclose(fp);
+
 	// return total_len;
-	int valread; 
-	// remove(sdfs_name.c_str());
-	char buffer[BUFFER_SIZE] = {0}; 
-	string res = "";
-    ofstream myfile;
-    string dir = DIR_SDFS + to_string(myinfo.id);
-    printf("get_file %s\n", (dir + "/" + sdfs_name).c_str());
-    ofstream outfile (dir + "/" + sdfs_name);
-    printf("To create file\n");
-    myfile.open (dir + "/" + sdfs_name, ios::app);
-    while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
-        if (valread < BUFFER_SIZE-1){
-            buffer[valread] = '\0';
-        }
-        res += buffer;
-    }
-    cout<<"created file\n";
-    myfile << res;
-    printf("PUT finished. Total received bytes: %lu", res.length());
-    cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
-    // printf("%s\n", res.c_str());
-    myfile.close();
-    close(sock);
+	// int valread; 
+	// char buffer[BUFFER_SIZE] = {0}; 
+	// string res = "";
+ //    ofstream myfile;
+ //    string dir = DIR_SDFS + to_string(myinfo.id);
+ //    printf("get_file %s\n", (dir + "/" + sdfs_name).c_str());
+ //    ofstream outfile (dir + "/" + sdfs_name);
+ //    printf("To create file\n");
+ //    myfile.open (dir + "/" + sdfs_name, ios::app);
+ //    while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
+ //        if (valread < BUFFER_SIZE-1){
+ //            buffer[valread] = '\0';
+ //        }
+ //        res += buffer;
+ //    }
+ //    cout<<"created file\n";
+ //    myfile << res;
+ //    printf("PUT finished. Total received bytes: %lu", res.length());
+ //    cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
+ //    // printf("%s\n", res.c_str());
+ //    myfile.close();
+ //    close(sock);
     sdfs_file_set.insert(sdfs_name);
     return 0;
 
