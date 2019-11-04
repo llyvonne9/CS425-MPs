@@ -525,6 +525,9 @@ int monitor(){ //UDP monitor heartbeat
 //Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
 	introducer.port = PORT_INTRO;
+	if (argc >3){
+		master_id = stoi(argv[3]);
+	} else { master_id = 2;}
 	if (argc > 2){
 		introducer.addr = (string) argv[2];
 	} else {
