@@ -1299,19 +1299,24 @@ int test(){
 				ptr = strtok(NULL, delim);
 				string sdfs_file = (string) ptr;
 				printf("%s\n", sdfs_file.c_str());
-				int put_count = put(local_file, sdfs_file);
 
-				if(put_count == REPLICA) {
-					msg = "OK";
-					printf("PUT successfully\n");
-				}
-				else {
-					msg = "NOT OK";
-					printf("PUT fail");
-				}
+				FILE *fp = fopen(local_file.c_str(), "rb");
+				if (fp == NULL) {msg = "NOT OK"; printf("File not found\n");}
+				else{
+					int put_count = put(local_file, sdfs_file);
 
-				long put_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-				printf("Put used %lu\n", (put_end - put_start));
+					if(put_count == REPLICA) {
+						msg = "OK";
+						printf("PUT successfully\n");
+					}
+					else {
+						msg = "NOT OK";
+						printf("PUT fail\n");
+					}
+
+					long put_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+					printf("Put used %lu\n", (put_end - put_start));
+				}
 			} 
 
 			if(strcmp(ptr, "STORE") == 0) {
