@@ -214,6 +214,10 @@ int send_msg(string& msg, struct server_para server){
 }	
 
 int add_file2node(string file_name, int id){
+	if (file_name == "" || (file_name == " ")){
+		return 0;
+	}
+
 	cout<<file_name<<" "<<id<<"\n";
 	if(check_file_exists(file_name)) {
 		file_map[file_name].nodes.insert(id);
@@ -224,7 +228,7 @@ int add_file2node(string file_name, int id){
 		set<int> set;
 		set.insert(id);
 		fp.nodes = set;
-		cout<< id<<"\n";
+		cout<< "first time in file_map"<<"\n";
 		file_map.insert({fp.name, fp});
 	}
 	cout<<"okk\n";
@@ -283,9 +287,10 @@ int master_init() {
 		while(nodes.size() < REPLICA) {
 			for(int i = 1; i < 11; i++) {
 				if(membership_list.find(i) != membership_list.end() && nodes.find(i) == nodes.end()) {
+					printf("file_name:%s num of nodes:%d\n", (it->first).c_str(), (int)nodes.size());
 					int sender = *nodes.begin(); 
 					string msg = "SEND_DUPICATE " + it->first + " " + to_string(i);
-					send_msg(msg, serverlist[nodes.begin()-1]);
+					send_msg(msg, serverlist[sender-1]);
 					if(strcmp(msg.c_str(), "OK") == 0) {
 						nodes.insert(i);
 						break;
@@ -295,7 +300,7 @@ int master_init() {
 		}
 	}
 
-
+	cout<<"I'm the new master\n";
 	return 0;
 
 
@@ -463,7 +468,7 @@ int monitor(){ //UDP monitor heartbeat
 		        int cur_status = (stoi(v[i + 2]));
 		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
 
-		        	if ((new_master_id != master_id) && (cur_id == new_master_id)){
+		        	if ((new_master_id != master_id) && (myinfo.id != master_id)){
 		        		master_id = new_master_id;
 		        		printf("new master is %d\n", master_id);
 		        	}
@@ -859,7 +864,7 @@ int get_file(string sdfs_name, int sock){
     string dir = DIR_SDFS + to_string(myinfo.id);
     printf("get_file %s\n", (dir + "/" + sdfs_name).c_str());
     ofstream outfile (dir + "/" + sdfs_name);
-    printf("Created file\n");
+    printf("To create file\n");
     myfile.open (dir + "/" + sdfs_name, ios::app);
     while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
         if (valread < BUFFER_SIZE-1){
@@ -867,6 +872,7 @@ int get_file(string sdfs_name, int sock){
         }
         res += buffer;
     }
+    cout<<"created file\n";
     myfile << res;
     printf("PUT finished. Total received bytes: %lu", res.length());
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
@@ -899,7 +905,8 @@ int send_dup(string file_name, int id) {
 		perror("file put init error");
 		return -1;
 	}
-	int total_sent = send_file(file_name, sock);
+	string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
+	int total_sent = send_file(dir_sdfs +"/" + file_name, sock);
 
 	return 0;
 }
@@ -1080,7 +1087,7 @@ int put(string local_file, string target_file) {
 		valread = read(sock , buffer, BUFFER_SIZE) < 0;
 
 		printf("(PUT)received %s before sending file\n", buffer);
-		string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
+		//string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
 		int total_sent = send_file(local_file, sock);
 		put_count++;
 		/*
@@ -1388,6 +1395,8 @@ int file_server() {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 		} else if(strcmp(received_vector[0].c_str(),"RECV_DUPICATE")==0) {
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			get_file(received_vector[1], new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
