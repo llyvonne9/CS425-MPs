@@ -809,9 +809,9 @@ int master() {
 						if(replicas.length() == 0) replicas += to_string(*it);
 						else replicas += " " + to_string(*it);
 					}
+					msg = replicas;
 
 					if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0) {
-						msg = replicas;
 						std::map<string,file_para>::iterator map_it;
 						map_it=file_map.find(file_name);
 		  				file_map.erase (map_it);
