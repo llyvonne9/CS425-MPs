@@ -75,6 +75,7 @@ map<int, int> mem_hb_map;
 set<string> sdfs_file_set;
 map<int, set<string>> files_per_node;
 map<string, file_para> file_map;
+int next_id = master_id == 1? 2: 1;
 
 /*
 int cur_rnd_idx = 0;
@@ -201,42 +202,19 @@ int send_msg(string& msg, struct server_para server){
     cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
 
     send(sock, msg.c_str(), msg.length(), 0);
-    printf("cmd sent %s \n ", msg.c_str());
+    printf("cmd to %d sent %s \n ", server.id, msg.c_str());
 
 	valread = read(sock, recv_info, BUFFER_SIZE);
 	recv_info[valread] = '\0';
-	printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
+	printf("\nThe info received from %d is: %s\n", server.id, recv_info); //neighbor leave (join might be optional)
 
 	msg = string(recv_info);
     close(sock);
 	return 0;
 }	
 
-int re_replica(int id) {
-	set<string> file_names = files_per_node.find(id) -> second;
-	set<string>::iterator it;
-	for(it = file_names.begin(); it!=file_names.end(); it++)  {
-		string file_name = *it;
-		set<int> nodes = file_map[file_name].nodes;
-		nodes.erase(id);
-		int src_id = *nodes.begin(), trg_id=-1;
-		set<int>::iterator it;
-		for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
-			trg_id = *it;
-			if(nodes.find(trg_id) != nodes.end()) {
-				nodes.insert(trg_id);
-				break;
-			}
-		}
-		//string msg = "COPY "+ file_name + " TO "+ to_string(trg_id);
-		string msg = "SEND_DUPICATE " + file_name + " " + to_string(trg_id);
-		cout<< "send "+to_string(src_id)+" a msg: "+msg;
-		send_msg(msg, serverlist[src_id-1]);
-	}
-	return 0;
-}
-
 int add_file2node(string file_name, int id){
+	cout<<file_name<<" "<<id<<"\n";
 	if(check_file_exists(file_name)) {
 		file_map[file_name].nodes.insert(id);
 	} else {
@@ -246,23 +224,54 @@ int add_file2node(string file_name, int id){
 		set<int> set;
 		set.insert(id);
 		fp.nodes = set;
+		cout<< id<<"\n";
 		file_map.insert({fp.name, fp});
 	}
+	cout<<"okk\n";
+	files_per_node[id].insert(file_name);
+}
 
-	(files_per_node.find(id)->second).insert(file_name);
+int re_replica(int id) {	//make sure only master calls this function
+	//set<string> file_names = files_per_node.find(id) -> second;
+	set<string> file_names = files_per_node[id];
+	set<string>::iterator it;
+	for(it = file_names.begin(); it!=file_names.end(); it++)  {
+		string file_name = *it;
+		set<int> nodes = file_map[file_name].nodes;
+		nodes.erase(id);
+		int src_id = *nodes.begin(), trg_id=next_id;
+		set<int>::iterator it;
+		while (membership_list.find(trg_id) == membership_list.end() || nodes.find(trg_id) != nodes.end()){
+			trg_id++;
+			if (trg_id==10) {trg_id=0;}
+			if (trg_id == next_id){
+				cout<<"No place to store the file.";
+				return -1;
+			}
+		}
+		cout<<trg_id << "\n";
+		next_id = trg_id;
+		//string msg = "COPY "+ file_name + " TO "+ to_string(trg_id);
+		add_file2node(file_name, trg_id);
+		string msg = "SEND_DUPICATE " + file_name + " " + to_string(trg_id);
+		cout<< "send "+to_string(src_id)+" a msg: "+msg + "\n";
+		send_msg(msg, serverlist[src_id-1]);
+	}
 	return 0;
 }
 
 int master_init() {
 	string msg = "COLLECT_SDFS";
 	for(int i = 1; i < 11; i++) {
-		send_msg(msg, serverlist[i - 1]);
+		if(membership_list.find(i) != membership_list.end()) {
+			send_msg(msg, serverlist[i - 1]);
 
-		vector<string> files = split(msg, " ");
-		set<string> set;
-		files_per_node.insert({i, set});
-		for(int j = 0; j < files.size(); j++) {
-			add_file2node(files[j], i);
+			vector<string> files = split(msg, " ");
+			set<string> set;
+			files_per_node.insert({i, set});
+			for(int j = 0; j < files.size(); j++) {
+				add_file2node(files[j], i);
+			}
 		}
 	}
 
@@ -303,7 +312,7 @@ int node_quit_proc(int id){
 		if (am_I_master){
 			master_id = myinfo.id;
 
-			master_init(); //TODO: build file table (public var)
+			master_init();
 		}
 	}
 	printf("fail_id:%d, master_id:%d, myinfo.id:%d\n", id, master_id, myinfo.id);
@@ -603,7 +612,6 @@ int master() {
 	int server_fd, new_server_fd;
 	struct sockaddr_in addr;
 	string delimiter = "_";
-	int next_id = master_id == 1? 2: 1;
 	
 	int read_received_message;
     int addrlen = sizeof(addr); 
@@ -625,7 +633,7 @@ int master() {
 	}
 
 	while(true) {
-		if(master_id == myinfo.id) {
+		if(master_id == myinfo.id && myinfo.status == 1) {
 			char received_info[BUFFER_SIZE] = {0}; 
 			if(listen(server_fd, QUEUE_SIZE) < 0) {
 				perror("[Error]: Fail to listen to incoming connections");
@@ -663,30 +671,31 @@ int master() {
 			} else if(strcmp(received_info_vec[0].c_str(), "PUT_SDFS") == 0) {
 				printf("PUT_SDFS\n");
 				string file_name = received_info_vec[1];
-				set<int> nodes;
 				if(!check_file_exists(file_name)) {
 					printf("File does not exist\n");
-					set<int> nodes;
+					//set<int> nodes;
 					for(int i = 0; i < REPLICA; i++) {
 						while(membership_list.find(next_id) == membership_list.end() || (file_map.find(file_name)->second).nodes.find(next_id) != (file_map.find(file_name)->second).nodes.end()) {
 							next_id++;
 							if(next_id != 10) next_id = next_id % 10;
 						}
-						nodes.insert(next_id);
+						//nodes.insert(next_id);
+						add_file2node(file_name, next_id);
 						
 						if(i > 0) msg += " " + to_string(next_id);
 						else msg = to_string(next_id);
 						printf("Replica %d\n", next_id);
 						next_id++;
+						if(next_id != 10) next_id = next_id % 10;
 					}
 					printf("[PUT] Master to node %s\n", msg.c_str());
-					file_para fp;
-					fp.name = file_name;
-					fp.nodes = nodes;
-					fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-					file_map.insert({file_name, fp});
-					send(new_server_fd, msg.c_str(), msg.length(), 0);
-					close(new_server_fd);
+					//file_para fp;
+					//fp.name = file_name;
+					//fp.nodes = nodes;
+					//fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+					//file_map.insert({file_name, fp});
+					//send(new_server_fd, msg.c_str(), msg.length(), 0);
+					//close(new_server_fd);
 				} else {
 					//confirmation about update
 					//update
@@ -1306,8 +1315,8 @@ int send_file_names(int sock) {
 		if(msg.length() == 0) msg += *it;
 		else msg += " " + *it;
 	}
+	cout<<msg<<"\n";
 	send(sock, msg.c_str(), msg.length(), 0);
-	close(sock);
 	return 0;
 }
 
@@ -1353,7 +1362,7 @@ int file_server() {
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
 		printf("(file server)The order received is: %s\n", received_info);
 		vector<string> received_vector = split(received_info, " ");
-		string file_name = received_vector[1];
+		string file_name = (received_vector.size()>1)? received_vector[1]: "WHATSUP";
 
 		if(strcmp(received_vector[0].c_str(),"DELETE")==0) {
 			//delete the file
@@ -1378,9 +1387,10 @@ int file_server() {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 		} else if(strcmp(received_vector[0].c_str(),"RECV_DUPICATE")==0) {
-			get_file(received_vector[2], new_server_fd);
+			get_file(received_vector[1], new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
+			cout<<"file names sent\n";
 		} 
 		/*else if(strcmp(received_vector[0].c_str(),"COPY")==0) {
 			int trg_id = stoi(received_vector[3]);
@@ -1500,7 +1510,8 @@ int main(int argc, char const *argv[]) {
     char recv_info[BUFFER_SIZE] = {0}; 
 
     getServers();
-    master_server = serverlist[1];
+    master_server = serverlist[master_id];
+    if (myinfo.id == master_id) {master_init();}
     master_server.port = PORT_MASTER + master_server.id - 1;
     printf("Master is Machine %d\n", master_server.id);
     
