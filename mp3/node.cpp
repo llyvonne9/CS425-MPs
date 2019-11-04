@@ -475,21 +475,21 @@ int monitor(){ //UDP monitor heartbeat
 		        int cur_hb = (stoi(v[i + 1]));
 		        int cur_status = (stoi(v[i + 2]));
 
-		        if (membership_list.find(master_id) == membership_list.end() && (new_master_id != master_id)){
-		        	master_id = new_master_id;
-		        	printf("new master is %d\n", master_id);
-		        	master_server = serverlist[master_id - 1];
-		        	master_server.port = PORT_MASTER + master_server.id - 1;
-		        }
+		        // if (membership_list.find(master_id) == membership_list.end()){
+		        // 	master_id = cur_id;
+		        // 	printf("new master is %d\n", master_id);
+		        // 	master_server = serverlist[master_id - 1];
+		        // 	master_server.port = PORT_MASTER + master_server.id - 1;
+		        // }
 
 		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
 
-		        	// if ((new_master_id != master_id) && (myinfo.id != master_id)){
-		        	// 	master_id = new_master_id;
-		        	// 	printf("new master is %d\n", master_id);
-		        	// 	master_server = serverlist[master_id - 1];
-		        	// 	master_server.port = PORT_MASTER + master_server.id - 1;
-		        	// }
+		        	if ((new_master_id != master_id) && (myinfo.id != master_id)){
+		        		master_id = new_master_id;
+		        		printf("new master is %d\n", master_id);
+		        		master_server = serverlist[master_id - 1];
+		        		master_server.port = PORT_MASTER + master_server.id - 1;
+		        	}
 
 		        	mem_hb_map.find(cur_id)->second = cur_hb;
 		        	if(cur_status == 1 && membership_list.find(cur_id) == membership_list.end()) {
