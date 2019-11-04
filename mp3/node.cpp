@@ -1035,6 +1035,7 @@ int put(string local_file, string target_file) {
 			cin >> YESNO;
 		    // There is input to be read on standard input
 		}
+		send(sock_confim, YESNO.c_str(), YESNO.length(), 0);
 		if(YESNO.length() == 0) printf("Timeout. PUT denied. \n");
 		printf("User's response %s\n", YESNO.c_str());
 		if (YESNO == "NO"){	//either timeout or cin is NO.
