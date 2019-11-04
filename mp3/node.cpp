@@ -17,6 +17,9 @@
 #include <set>
 #include <map>
 #include <sys/poll.h>
+#include <cstddef>
+#include <ctime>
+#include <future>
 using namespace std;
 using namespace std::chrono;
 
@@ -31,6 +34,7 @@ using namespace std::chrono;
 #define REPLICA 3
 #define DIR_SDFS "DIR_SDFS"
 #define MIN_UPDATE_DURATION 60000
+#define RESPONDE_TIMEOUT 15
 
 //Server parameters to assign and to print
 struct server_para {
@@ -315,6 +319,7 @@ int node_quit_proc(int id){
 	if (master_id == myinfo.id){ //I'm the master
 		re_replica(id);
 	}
+	return 0;
 }
 
 // send heartbeat to the neighbor with the address IP
@@ -689,21 +694,24 @@ int master() {
 					//fp.nodes = nodes;
 					//fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					//file_map.insert({file_name, fp});
+					//send(new_server_fd, msg.c_str(), msg.length(), 0);
+					//close(new_server_fd);
 				} else {
 					//confirmation about update
 					//update
-					printf("File exists\n");
+					printf("File exists. \n");
 					long cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					long confirmed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					string update_confirm_msg = "LESS1MIN";
 					if((cur_time - file_map[file_name].timestamp) < MIN_UPDATE_DURATION ) {
-						
+						printf("Less than 1 min. Wait user to confirm \n");
 						send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
 						struct pollfd fd;
 						int ret;
 						fd.fd = new_server_fd; //  socket handler 
 						fd.events = POLLIN;
-						ret = poll(&fd, 1, 30000); // 30 second for timeout
+						ret = poll(&fd, 1, RESPONDE_TIMEOUT * 1000); // 30 second for timeout
+						char confirm_info[BUFFER_SIZE] = {0};
 						switch (ret) {
 						    case -1:
 						        // Error
@@ -711,17 +719,17 @@ int master() {
 						        break;
 						    case 0:
 						        // Timeout
-						    	printf("Timeout\n");
-						    	msg = "NO";
-								send(new_server_fd, msg.c_str(), msg.length(), 0);
-								printf("Master received confimation %s\n", msg.c_str());
-								printf("Update denied\n");
+						    	printf("Timeout. Update denied. \n");
+						    	// msg = "NO";
 								// send(new_server_fd, msg.c_str(), msg.length(), 0);
-								close(new_server_fd);
+								// printf("Master received confimation %s\n", msg.c_str());
+								// send(new_server_fd, msg.c_str(), msg.length(), 0);
+								// close(new_server_fd);
+
+								recv(new_server_fd,confirm_info,sizeof(confirm_info), 0);
 								update_confirm_msg = "TIMEOUT";
 						        break;
 						    default:
-						    	char confirm_info[BUFFER_SIZE] = {0}; 
 						        recv(new_server_fd,confirm_info,sizeof(confirm_info), 0); // get  data
 						        update_confirm_msg = confirm_info;
 						        printf("Master received confimation %s\n", update_confirm_msg.c_str());
@@ -748,17 +756,18 @@ int master() {
 						}
 						printf("[Update] Master sent msg: %s\n", replicas.c_str());
 						msg = replicas;
+						
 					} else {
 						
 						printf("[Update] master denied with msg: %s\n", update_confirm_msg.c_str());
 						msg = "NO";
 					}
+
+					send(new_server_fd, msg.c_str(), msg.length(), 0);
+					printf("Master sent %s\n", msg.c_str());
+					close(new_server_fd);
 					
 				}
-				send(new_server_fd, msg.c_str(), msg.length(), 0);
-				close(new_server_fd);
-					
-
 
 			} else if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0 || strcmp(received_info_vec[0].c_str(), "LS_SDFS") == 0) {
 				string file_name = received_info_vec[1];
@@ -946,6 +955,13 @@ int get(string sdfs_filename, string local_filename) {
 
 }
 
+static std::string getAnswer()
+{    
+    std::string answer;
+    std::cin >> answer;
+    return answer;
+}
+
 int put(string local_file, string target_file) {
 	// to master
 	string msg = "PUT_SDFS "+target_file;
@@ -974,26 +990,56 @@ int put(string local_file, string target_file) {
 
 	// send_msg(msg, master_server);
 	char delim[] = " ";
-	char *dup = strdup(msg.c_str());
-	char *ptr = strtok(dup, delim); 
-	free(dup);
+	// char *dup = strdup(msg.c_str());
+	char *ptr = strtok(recv_info, delim); 
+	// free(dup);
 	if (strcmp(ptr, "LESS1MIN") == 0){
 		string YESNO = "";
-		while ((YESNO != "YES") && (YESNO != "NO") && ((YESNO == "YES" || YESNO == "NO)") && send(sock_confim, YESNO.c_str(), YESNO.length(), 0))){
-			cout << "The update is less than one min. Do you want to continue?(YES/NO)";
-			cin >> YESNO;
-			if(YESNO.length() != 0) break;
+		// while ((YESNO != "YES") && (YESNO != "NO")){
+			cout << "The update is less than one min. Do you want to continue?(YES/NO)"<< std::endl << std::flush;
+			// // cin >> YESNO;
+			// std::chrono::seconds timeout(RESPONDE_TIMEOUT + 1);
+		 //    std::future<std::string> future = std::async(getAnswer);
+		 //    if (future.wait_for(timeout) == std::future_status::ready)
+		 //        YESNO = future.get();
+
+		// }
+		struct pollfd poller;
+		poller.fd = STDIN_FILENO;
+		poller.events = POLLIN;
+		poller.revents = 0;
+
+		int rc = poll(&poller, 1, RESPONDE_TIMEOUT * 1000 + 10);  // Poll one descriptor with a five second timeout
+		if (rc < 0)
+		    perror("select");
+		else if (rc == 0)
+		{
+		    // Timeout
+		    printf("Timeout\n");
 		}
-		// send(sock_confim, YESNO.c_str(), YESNO.length(), 0);
-		printf("%s\n", YESNO.c_str());
+		else
+		{
+			cin >> YESNO;
+		    // There is input to be read on standard input
+		}
+		if(YESNO.length() == 0) printf("Timeout. PUT denied. \n");
+		printf("User's response %s\n", YESNO.c_str());
 		if (YESNO == "NO"){	//either timeout or cin is NO.
 			printf("User withdraw update. \n");
 			close(sock_confim);
 			return 0;
+		} else if(YESNO == "") {
+			printf("User didn't response. Timeout. \n");
+			close(sock_confim);
+			printf("Close successfully\n");
+			return 0;
 		} else{
 			// ptr = strtok(NULL, delim); 
+			char recv_info2[BUFFER_SIZE] = {0}; 
 			read(sock_confim, recv_info, BUFFER_SIZE);
+			msg = "";
 			msg = recv_info;
+			printf("msg in else %s\n", msg.c_str());
 			
 		}
 	} 
@@ -1200,7 +1246,9 @@ int test(){
 				string sdfs_file = (string) ptr;
 				printf("%s\n", sdfs_file.c_str());
 				put(local_file, sdfs_file);
+
 				msg = "OK";
+				printf("PUT %s\n", msg.c_str());
 			} 
 
 			if(strcmp(ptr, "STORE") == 0) {
