@@ -237,6 +237,8 @@ int add_file2node(string file_name, int id){
 }
 
 int re_replica(int id) {	//make sure only master calls this function
+	long time1 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+
 	//set<string> file_names = files_per_node.find(id) -> second;
 	set<string> file_names = files_per_node[id];
 	set<string>::iterator it;
@@ -262,6 +264,8 @@ int re_replica(int id) {	//make sure only master calls this function
 		cout<< "send "+to_string(src_id)+" a msg: "+msg + "\n";
 		send_msg(msg, serverlist[src_id-1]);
 	}
+	long time2 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	cout<<"Replicate time:"<<time2-time1<<"\n";
 	return 0;
 }
 
@@ -962,6 +966,7 @@ int get(string sdfs_filename, string local_filename) {
     cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
     myfile.close();*/
     // sdfs_file_set.insert(sdfs_filename);
+    close(sock);
     return 0;
 
 }
