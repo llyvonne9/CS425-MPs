@@ -143,12 +143,28 @@ int init_para(int argc, char const *argv[]){
         
     if(strcmp(action.c_str(), "JOIN") == 0 || strcmp(action.c_str(), "LEAVE") == 0 || strcmp(action.c_str(), "INFO") == 0) cmd = "TEST "+ action;
     else if(strcmp(action.c_str(), "GET") == 0) {
+        if(argc < 5) {
+            printf("Wrong parameters\n");
+            return -1;
+        }
         cmd = "TEST " + action + " "+ (string) argv[3] + " " + (string) argv[4];
     }else if(strcmp(action.c_str(), "PUT") == 0) {
+        if(argc < 5) {
+            printf("Wrong parameters\n");
+            return -1;
+        }
         cmd = "TEST " + action + " "+ (string) argv[3] + " "+ (string) argv[4];
     }else if(strcmp(action.c_str(), "DELETE") == 0) {
+        if(argc < 4) {
+            printf("Wrong parameters\n");
+            return -1;
+        }
         cmd = "TEST " + action + " "+ (string) argv[3];
     } else if(strcmp(action.c_str(), "LS") == 0) {
+        if(argc < 4) {
+            printf("Wrong parameters\n");
+            return -1;
+        }
         cmd = "TEST " + action + " "+ (string) argv[3];
     }
 
@@ -168,7 +184,10 @@ int main(int argc, char const *argv[]) {
         line++;
     }
     // cout << "pass";
-    init_para(argc, argv);
+    int status = init_para(argc, argv);
+    if(status == -1) {
+        return 0;
+    }
 
     //Connect to Introducer
     //int sock;
