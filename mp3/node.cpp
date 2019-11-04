@@ -1417,6 +1417,7 @@ int file_server() {
 		} else if(strcmp(received_vector[0].c_str(),"RECV_DUPICATE")==0) {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			sdfs_file_set.insert(received_vector[1]);
 			get_file(received_vector[1], new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
