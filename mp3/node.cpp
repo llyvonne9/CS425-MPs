@@ -1241,84 +1241,71 @@ int test(){
 				}
 			}
 			if(strcmp(ptr, "GET") == 0) {
-				if(membership_list.find(myinfo.id) == membership_list.end()) {
-					msg = "Please JOIN first";
-				} else {
-					long get_start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-					ptr = strtok(NULL, delim);
-					string sdfs_file = (string) ptr;
-					ptr = strtok(NULL, delim);
-					string local_file = (string) ptr;
-					get(sdfs_file, local_file);
-					msg = "OK";
-					long get_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-					printf("GET used time %lu\n", (get_end - get_start));
-				}
-				
+				long get_start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+				ptr = strtok(NULL, delim);
+				string sdfs_file = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string local_file = (string) ptr;
+				get(sdfs_file, local_file);
+				msg = "OK";
+				long get_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+				printf("GET used time %lu\n", (get_end - get_start));
 			}
 			if(strcmp(ptr, "DELETE") == 0) {
-				if(membership_list.find(myinfo.id) == membership_list.end()) {
-					msg = "Please JOIN first";
-				} else {
-					ptr = strtok(NULL, delim);
-					string target_file = (string) ptr;
-					//delete_file(target_file); //delete local copy => This can be done when server notices it.
-					
-					//tell master to delete file
-					msg = "DELETE_SDFS " + target_file;
-					send_msg(msg, master_server);
-					if(msg.length() == 0) printf("%s does not exist in the system.\n", target_file.c_str());
-					else {
-						string cmd = "DELETE " + target_file;
-						vector<string> nodes = split(msg, " ");
-						int ok_count = 0;
-						for(int i = 0; i < nodes.size(); i++) {
-							int id = stoi(nodes[i]);
-							cmd = "DELETE " + target_file;
-							if(id != myinfo.id) {
-								send_msg(cmd, serverlist[id - 1]);
-								if(strcmp(cmd.c_str(), "OK") == 0) ok_count++;
-							} else {
-								string dir = DIR_SDFS + to_string(myinfo.id);
-								string cmd = "rm "+ dir + "/" + target_file;
-								popen(cmd.c_str(), "r");
-								sdfs_file_set.erase(target_file);
-								ok_count++;
-							}
-							
+				ptr = strtok(NULL, delim);
+				string target_file = (string) ptr;
+				//delete_file(target_file); //delete local copy => This can be done when server notices it.
+				
+				//tell master to delete file
+				msg = "DELETE_SDFS " + target_file;
+				send_msg(msg, master_server);
+				if(msg.length() == 0) printf("%s does not exist in the system.\n", target_file.c_str());
+				else {
+					string cmd = "DELETE " + target_file;
+					vector<string> nodes = split(msg, " ");
+					int ok_count = 0;
+					for(int i = 0; i < nodes.size(); i++) {
+						int id = stoi(nodes[i]);
+						cmd = "DELETE " + target_file;
+						if(id != myinfo.id) {
+							send_msg(cmd, serverlist[id - 1]);
+							if(strcmp(cmd.c_str(), "OK") == 0) ok_count++;
+						} else {
+							string dir = DIR_SDFS + to_string(myinfo.id);
+							string cmd = "rm "+ dir + "/" + target_file;
+							popen(cmd.c_str(), "r");
+							sdfs_file_set.erase(target_file);
+							ok_count++;
 						}
-						printf("Deleted %d copies\n", ok_count);
-						if(ok_count == REPLICA) msg = "OK";
-						else msg = "NOT OK";
+						
 					}
+					printf("Deleted %d copies\n", ok_count);
+					if(ok_count == REPLICA) msg = "OK";
+					else msg = "NOT OK";
 				}
 
 			}
 			if(strcmp(ptr, "PUT") == 0) {
-				if(membership_list.find(myinfo.id) == membership_list.end()) {
-					msg = "Please JOIN first";
-				} else {
-					long put_start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-					ptr = strtok(NULL, delim);
-					string local_file = (string) ptr;
-					printf("%s\n", local_file.c_str());
-					ptr = strtok(NULL, delim);
-					string sdfs_file = (string) ptr;
-					printf("%s\n", sdfs_file.c_str());
-					int put_count = put(local_file, sdfs_file);
+				long put_start = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+				ptr = strtok(NULL, delim);
+				string local_file = (string) ptr;
+				printf("%s\n", local_file.c_str());
+				ptr = strtok(NULL, delim);
+				string sdfs_file = (string) ptr;
+				printf("%s\n", sdfs_file.c_str());
+				int put_count = put(local_file, sdfs_file);
 
-					if(put_count == REPLICA) {
-						msg = "OK";
-						printf("PUT successfully\n");
-					}
-					else {
-						msg = "NOT OK";
-						printf("PUT fail\n");
-					}
-
-					long put_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-					printf("Put used %lu\n", (put_end - put_start));
+				if(put_count == REPLICA) {
+					msg = "OK";
+					printf("PUT successfully\n");
 				}
+				else {
+					msg = "NOT OK";
+					printf("PUT fail");
+				}
+
+				long put_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+				printf("Put used %lu\n", (put_end - put_start));
 			} 
 
 			if(strcmp(ptr, "STORE") == 0) {
