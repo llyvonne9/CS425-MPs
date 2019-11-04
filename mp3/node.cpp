@@ -34,7 +34,7 @@ using namespace std::chrono;
 #define REPLICA 3
 #define DIR_SDFS "DIR_SDFS"
 #define MIN_UPDATE_DURATION 60000
-#define RESPONDE_TIMEOUT 15
+#define RESPONDE_TIMEOUT 20
 
 //Server parameters to assign and to print
 struct server_para {
@@ -68,7 +68,7 @@ struct server_para myinfo;
 struct server_para introducer;
 struct server_para master_server;
 struct server_para *neighbors;
-int wait_time = 8000; //ms can use 80 for emulating msg loss
+int wait_time = 500; //ms can use 80 for emulating msg loss
 int heartbeat_time = wait_time/8;
 int heartbeat_when_join = 0;
 set<int> membership_list;
@@ -300,6 +300,7 @@ int master_init() {
 					send_msg(msg, serverlist[sender-1]);
 					if(strcmp(msg.c_str(), "OK") == 0) {
 						nodes.insert(i);
+						add_file2node(it->first, i);
 						break;
 					}
 				}
@@ -489,6 +490,7 @@ int monitor(){ //UDP monitor heartbeat
 
 		        	if (new_master_id != master_id && new_master_count > master_count){
 		        		master_id = new_master_id;
+		        		master_count = new_master_count;
 		        		printf("new master is %d\n", master_id);
 		        		master_server = serverlist[master_id - 1];
 		        		master_server.port = PORT_MASTER + master_server.id - 1;
@@ -866,10 +868,11 @@ int send_file(string file_name, int sock){
 	return 0;
 }
 
-int get_file(string sdfs_name, int sock){
+int get_file(string sdfs_name, int sock, bool isLocal){
 
 	string dir = DIR_SDFS + to_string(myinfo.id);
-	FILE *fp = fopen((dir + "/" + sdfs_name).c_str(), "wb");
+	string file_name = isLocal? sdfs_name: dir + "/" + sdfs_name;
+	FILE *fp = fopen((file_name).c_str(), "wb");
 	char buffer[BUFFER_SIZE];
 	int length = 0, total_len = 0;
 
@@ -973,7 +976,7 @@ int get(string sdfs_filename, string local_filename) {
     // int total_len = get_filea(dir + "/" + target_file, sock);
     // printf("total receive %d bits", total_len);
 
-    get_file(local_filename, sock);
+    get_file(local_filename, sock, true);
 
 	/*char buffer[BUFFER_SIZE] = {0}; 
 	string res = "";
@@ -1434,7 +1437,7 @@ int file_server() {
 		} else if(strcmp(received_vector[0].c_str(),"PUT")==0) {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
-			get_file(received_vector[1], new_server_fd);
+			get_file(received_vector[1], new_server_fd, false);
     		sdfs_file_set.insert(received_vector[1]);
 		} else if(strcmp(received_vector[0].c_str(),"SEND_DUPICATE")==0) {
 			send_dup(received_vector[1], stoi(received_vector[2]));
@@ -1444,7 +1447,7 @@ int file_server() {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			sdfs_file_set.insert(received_vector[1]);
-			get_file(received_vector[1], new_server_fd);
+			get_file(received_vector[1], new_server_fd,false);
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
 			cout<<"file names sent\n";
