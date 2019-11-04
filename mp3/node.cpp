@@ -662,13 +662,13 @@ int master() {
 				if(!check_file_exists(file_name)) {
 					msg = "[GET RESULT] The file does not exit.";
 				} else {
-					int id;
-					set<int> ns = (file_map.find(file_name)->second).nodes;
-					set<int>::iterator it;
-					for(it = ns.begin(); it!=ns.end(); it++)  {
-						id = *it;
-					}
-					msg = to_string(id);
+					//int id;
+					//set<int> ns = (file_map.find(file_name)->second).nodes;
+					//set<int>::iterator it;
+					//for(it = ns.begin(); it!=ns.end(); it++)  {
+					//	id = *it;
+					//}
+					msg = to_string(*file_map[file_name].nodes.begin());
 					printf("[GET] master to node. msg: %s\n", msg.c_str());
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
@@ -1219,7 +1219,7 @@ int test(){
 				get(sdfs_file, local_file);
 				msg = "OK";
 				long get_end = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-				printf("GET used %lu\n", (get_end - get_start));
+				printf("GET used time %lu\n", (get_end - get_start));
 			}
 			if(strcmp(ptr, "DELETE") == 0) {
 				ptr = strtok(NULL, delim);
