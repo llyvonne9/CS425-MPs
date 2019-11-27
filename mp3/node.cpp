@@ -78,33 +78,6 @@ map<int, set<string>> files_per_node;
 map<string, file_para> file_map;
 int next_id = 1;
 
-/*
-int cur_rnd_idx = 0;
-//return a node that doesn't possess the file yet
-int rand_idx(string file_name){
-	int idx = cur_rnd_idx;
-	while(true){
-		idx++;
-		if (idx == files_per_node.size())
-			idx = 0;
-		if (file_map[file_name].nodes.find(idx) != file_map[file_name].nodes.end()){
-			break;
-		}
-	}
-	cur_rnd_idx = idx;
-	return idx;
-}
-
-//replicate files in a failed node to new
-int copy_files(int id){
-	for(auto ele: files_per_node[id]){
-		int src_node = file_map[ele].nodes[0]==id? file_map[ele].nodes[1]:file_map[ele].nodes[0];
-		int trg_node = rand_idx(ele);
-		string msg = "COPY "+ele+" TO "+trg_node;
-		send_msg(msg, serverlist[src_node]);	//make sure the current design has fixed id for nodes.
-	}
-}
-*/
 
 //Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server, int socktype){   
@@ -479,13 +452,6 @@ int monitor(){ //UDP monitor heartbeat
 		        int cur_hb = (stoi(v[i + 1]));
 		        int cur_status = (stoi(v[i + 2]));
 
-		        // if (membership_list.find(master_id) == membership_list.end()){
-		        // 	master_id = cur_id;
-		        // 	printf("new master is %d\n", master_id);
-		        // 	master_server = serverlist[master_id - 1];
-		        // 	master_server.port = PORT_MASTER + master_server.id - 1;
-		        // }
-
 		        if( cur_hb > mem_hb_map.find(cur_id) -> second ) {
 
 		        	if (new_master_id != master_id && new_master_count > master_count){
@@ -512,17 +478,7 @@ int monitor(){ //UDP monitor heartbeat
 		        }
 
 		    }
-		    // vector<int> diff_set(20);
-		    // auto iter= set_symmetric_difference(membership_list.begin(), membership_list.end(), tmp_mem_list.begin(), tmp_mem_list.end(), diff_set.begin());
-		    // diff_set.resize(iter-diff_set.begin());
-		    // // printf("Diff set size %lu\n", diff_set.size());
-		    // membership_list = tmp_mem_list;
-		    // membership_list.insert(myinfo.id);
-		    // for(int i = 0; i < NUM_NBR; i++) {
-		    // 	// cout << neighbors[i].id;
-		    // 	if(neighbors[i].status == 1) membership_list.insert(neighbors[i].id);
-		    // 	else membership_list.erase(neighbors[i].id);
-		    // }
+
 		    if(need_update) {
 		    	printf("UPDATE the membership list is: \n");
 				set<int>::iterator it;
@@ -604,13 +560,7 @@ int join(){
 	}
 
 	printf("After JOIN, the membership list including: \n");
-	// for(int i = 0; i < NUM_NBR; i++) {
-	// 	if(neighbors[i].status == 1) {
-	// 		printf("Machine %d : ACTIVE\n", neighbors[i].id);
-	// 	} else {
-	// 		printf("Machine %d : INACTIVE\n", neighbors[i].id);
-	// 	}
-	// }
+
 	membership_list.clear();
 
 	for(int i = NUM_NBR * 4 + 2; i < nbrs.size() - 1; i++) {
@@ -688,12 +638,6 @@ int master() {
 				if(!check_file_exists(file_name)) {
 					msg = "[GET RESULT] The file does not exit.";
 				} else {
-					//int id;
-					//set<int> ns = (file_map.find(file_name)->second).nodes;
-					//set<int>::iterator it;
-					//for(it = ns.begin(); it!=ns.end(); it++)  {
-					//	id = *it;
-					//}
 					msg = to_string(*file_map[file_name].nodes.begin());
 					printf("[GET] master to node. msg: %s\n", msg.c_str());
 				}
@@ -721,11 +665,7 @@ int master() {
 						if(next_id != 10) next_id = next_id % 10;
 					}
 					printf("[PUT] Master to node %s\n", msg.c_str());
-					//file_para fp;
-					//fp.name = file_name;
-					//fp.nodes = nodes;
-					//fp.timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-					//file_map.insert({file_name, fp});
+					
 					send(new_server_fd, msg.c_str(), msg.length(), 0);
 					close(new_server_fd);
 				} else {
@@ -752,12 +692,6 @@ int master() {
 						    case 0:
 						        // Timeout
 						    	printf("Timeout. Update denied. \n");
-						    	// msg = "NO";
-								// send(new_server_fd, msg.c_str(), msg.length(), 0);
-								// printf("Master received confimation %s\n", msg.c_str());
-								// send(new_server_fd, msg.c_str(), msg.length(), 0);
-								// close(new_server_fd);
-
 								recv(new_server_fd,confirm_info,sizeof(confirm_info), 0);
 								update_confirm_msg = "TIMEOUT";
 						        break;
@@ -770,15 +704,7 @@ int master() {
 
 
 					} 
-					// else {
-					// 	string replicas = "";
-					// 	map<string, file_para>::iterator it;
-					// 	for(it = file_map.begin(); it!=file_map.end(); it++)  {
-					// 		if(replicas.length() == 0) replicas += it -> first;
-					// 		else replicas += " " + it -> first;
-					// 	}
 
-					// }
 					if(strcmp(update_confirm_msg.c_str(), "YES") == 0) {
 						string replicas = "";
 						set<int>::iterator it;
@@ -881,9 +807,6 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 	} else {
 		bzero(buffer, BUFFER_SIZE);
 		while ((length = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
-	        //if (length < BUFFER_SIZE-1){
-	        //    buffer[length++] = '\0';
-	        //}
 	        fwrite(buffer, sizeof(char), length, fp);
 	        bzero(buffer, BUFFER_SIZE);
 	        total_len += length;
@@ -891,29 +814,7 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 		printf("%d bytes received. Transfer Successfully. \n", total_len);
 	}
 	fclose(fp);
-	// return total_len;
-	// int valread; 
-	// char buffer[BUFFER_SIZE] = {0}; 
-	// string res = "";
- //    ofstream myfile;
- //    string dir = DIR_SDFS + to_string(myinfo.id);
- //    printf("get_file %s\n", (dir + "/" + sdfs_name).c_str());
- //    ofstream outfile (dir + "/" + sdfs_name);
- //    printf("To create file\n");
- //    myfile.open (dir + "/" + sdfs_name, ios::app);
- //    while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
- //        if (valread < BUFFER_SIZE-1){
- //            buffer[valread] = '\0';
- //        }
- //        res += buffer;
- //    }
- //    cout<<"created file\n";
- //    myfile << res;
- //    printf("PUT finished. Total received bytes: %lu", res.length());
- //    cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
- //    // printf("%s\n", res.c_str());
- //    myfile.close();
- //    close(sock);
+
     return 0;
 
 }
@@ -973,28 +874,8 @@ int get(string sdfs_filename, string local_filename) {
     send(sock, msg.c_str(), msg.length(), 0);
     printf("cmd sent %s \n ", msg.c_str());
 
-    // int total_len = get_filea(dir + "/" + target_file, sock);
-    // printf("total receive %d bits", total_len);
-
     get_file(local_filename, sock, true);
 
-	/*char buffer[BUFFER_SIZE] = {0}; 
-	string res = "";
-    ofstream myfile;
-    ofstream outfile (local_filename);
-    myfile.open (local_filename, ios::app);
-    while ((valread = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
-        if (valread < BUFFER_SIZE-1){
-            buffer[valread] = '\0';
-        }
-        res += buffer;
-        
-    }
-    myfile << res;
-    printf("GET finished. Total received bytes: %lu", res.length());
-    cout << "\nTotal " << count(res.begin(), res.end(), '\n') << " lines are retrieved" << std::endl;
-    myfile.close();*/
-    // sdfs_file_set.insert(sdfs_filename);
     close(sock);
     return 0;
 
@@ -1031,26 +912,15 @@ int put(string local_file, string target_file) {
 
 	msg = string(recv_info);
 	printf("(Put) Node received info %s\n", msg.c_str());
- //    close(sock);
-	// return 0;
 
-
-	// send_msg(msg, master_server);
 	char delim[] = " ";
 	// char *dup = strdup(msg.c_str());
 	char *ptr = strtok(recv_info, delim); 
 	// free(dup);
 	if (strcmp(ptr, "LESS1MIN") == 0){
 		string YESNO = "";
-		// while ((YESNO != "YES") && (YESNO != "NO")){
-			cout << "The update is less than one min. Do you want to continue?(YES/NO)"<< std::endl << std::flush;
-			// // cin >> YESNO;
-			// std::chrono::seconds timeout(RESPONDE_TIMEOUT + 1);
-		 //    std::future<std::string> future = std::async(getAnswer);
-		 //    if (future.wait_for(timeout) == std::future_status::ready)
-		 //        YESNO = future.get();
+		cout << "The update is less than one min. Do you want to continue?(YES/NO)"<< std::endl << std::flush;
 
-		// }
 		struct pollfd poller;
 		poller.fd = STDIN_FILENO;
 		poller.events = POLLIN;
@@ -1100,12 +970,6 @@ int put(string local_file, string target_file) {
 	//to node
 	msg = "PUT " + target_file;
 
-	//Test small, medium files first
-    //ifstream myfile(DIR_SDFS + "/" + target_file);
-    //stringstream stream_buf;
-    //stream_buf << myfile.rdbuf();
-    //string result = stream_buf.str();
-
 	for (int i=0; i<REPLICA; i++){
 		printf("Put to %s\n", ids[i].c_str());
 		int valread; 
@@ -1130,20 +994,7 @@ int put(string local_file, string target_file) {
 		//string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
 		int total_sent = send_file(local_file, sock);
 		put_count++;
-		/*
-	    int total_sent = 0;
-		printf("result length=%lu\n",result.length());
-		int n_sent = 0;
-		//send the msg segment by segment
-		while (total_sent < result.length()){
-			int n_bytes = result.length() - total_sent < BUFFER_SIZE - 1? result.length() - total_sent: BUFFER_SIZE - 1;
-			n_sent = send(sock, result.c_str() + total_sent, n_bytes, 0);
-			total_sent += n_sent;
-		}
-		close(sock);
-		*/
 
-	    // printf("PUT finished. Total sent bytes: %d\n\n", total_sent);
 	    close(sock);
 	}
 	
@@ -1457,32 +1308,6 @@ int file_server() {
 			send_file_names(new_server_fd);
 			cout<<"file names sent\n";
 		} 
-		/*else if(strcmp(received_vector[0].c_str(),"COPY")==0) {
-			int trg_id = stoi(received_vector[3]);
-			string msg = "PUT "+received_vector[1];
-			int sock;
-		    char recv_info[BUFFER_SIZE] = {0}; 
-
-		    struct sockaddr_in serv_addr; 	
-			init_socket_para(serv_addr, serverlist[trg_id-1].addr.c_str(), serverlist[trg_id-1].port);
-		    if (connect_socket(sock, serv_addr)<0 || membership_list.find(stoi(ids[i])) == membership_list.end()){
-		    	return -1;
-		    }
-
-		    send(sock, msg.c_str(), msg.length(), 0);
-		    printf("cmd sent %s \n ", msg.c_str());
-
-			int valread = read(sock, recv_info, BUFFER_SIZE);
-			recv_info[valread] = '\0';
-			printf("\nThe info received is: %s\n", recv_info); //neighbor leave (join might be optional)
-
-			msg = string(recv_info);
-
-			if (msg == "OK"){
-				send_file(received_vector[1], sock);
-			}
-		    close(sock);
-		}*/
 		close(new_server_fd);
 	}
 	
