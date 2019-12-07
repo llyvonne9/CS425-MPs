@@ -33,7 +33,7 @@ using namespace std::chrono;
 #define PORT_TEST 8200
 #define PORT_FILE 8300
 #define NUM_NBR 4
-#define REPLICA 3
+#define REPLICA 2
 #define DIR_SDFS "DIR_SDFS"
 #define MIN_UPDATE_DURATION 60000
 #define RESPONDE_TIMEOUT 20
@@ -328,6 +328,32 @@ int node_quit_proc(int id){
 	printf("fail_id:%d, master_id:%d, myinfo.id:%d\n", id, master_id, myinfo.id);
 	if (master_id == myinfo.id){ //I'm the master
 		re_replica(id);
+
+		if(is_mapling && maple_machines_idxs.find(id) != maple_machines_idxs.end() && maple_finish_set.find(maple_machines_idxs.find(id) -> second) == maple_finish_set.end()) {
+			while(membership_list.find(next_mj_id) == membership_list.end() || maple_machines_idxs.find(next_mj_id) != maple_machines_idxs.end()) {
+				next_mj_id++;
+				if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
+			}
+			int failed_maple_index = maple_machines_idxs.find(id) -> second;
+			maple_machines_idxs.erase(id);
+			maple_machines_idxs.insert({next_mj_id, failed_maple_index});
+			maple_idxs_machines.find(failed_maple_index) -> second = next_mj_id;
+			string tmp = maple_msg + to_string(failed_maple_index);
+			send_msg(tmp, serverlist[next_mj_id - 1]);
+		}
+
+		if(is_juicing && maple_machines_idxs.find(id) != maple_machines_idxs.end() && juice_finish_set.find(maple_machines_idxs.find(id) -> second) == juice_finish_set.end()) {
+			while(membership_list.find(next_mj_id) == membership_list.end() || maple_machines_idxs.find(next_mj_id) != maple_machines_idxs.end()) {
+				next_mj_id++;
+				if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
+			}
+			int failed_maple_index = maple_machines_idxs.find(id) -> second;
+			maple_machines_idxs.erase(id);
+			maple_machines_idxs.insert({next_mj_id, failed_maple_index});
+			maple_idxs_machines.find(failed_maple_index) -> second = next_mj_id;
+			string tmp = juice_msg + to_string(failed_maple_index);
+			send_msg(tmp, serverlist[next_mj_id - 1]);
+		}
 	}
 	return 0;
 }
@@ -814,73 +840,6 @@ int master() {
 
 	while(true) {
 		if(master_id == myinfo.id && myinfo.status == 1) {
-			if(is_mapling) {
-				if(maple_finish_set.size() >= maple_machine_num) {
-					ready_to_juice = true;
-					is_mapling = false;
-
-				} else {
-					map<int, int>::iterator it;
-					for(it = maple_machines_idxs.begin(); it!=maple_machines_idxs.end(); it++)  {
-						if(!check_is_machine_alive(it -> first) && maple_finish_set.find(it -> second) == maple_finish_set.end()) {
-							int failed_machine_id = stoi(to_string(it -> first));
-							while(membership_list.find(next_mj_id) == membership_list.end() || maple_machines_idxs.find(next_mj_id) != maple_machines_idxs.end()) {
-								next_mj_id++;
-								if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
-							}
-							int failed_maple_index = maple_idxs_machines.find(maple_machines_idxs.find(failed_machine_id)->second) -> second;
-							maple_machines_idxs.erase(failed_machine_id);
-							maple_machines_idxs.insert({next_mj_id, failed_maple_index});
-							maple_idxs_machines.insert({failed_maple_index, next_mj_id});
-							string tmp = maple_msg + to_string(failed_maple_index);
-							send_msg(tmp, serverlist[next_mj_id - 1]);
-						}
-						
-					}
-				}
-			}
-
-			if(is_juicing) {
-				if(juice_finish_set.size() >= maple_machine_num) {
-					combine_results(output_file);
-
-					cout << "JOICE finished";
-
-					is_juicing = false;
-					if(delete_intermediate == 1) {
-						//delete maple output
-						string file_names = get_filenames_by_prefix(prefix);
-						vector<string> files = split(file_names, " ");
-						for(int i = 0; i < files.size(); i++) 
-							delete_file(files[i]);
-
-						//delete reduce output
-						file_names = get_filenames_by_prefix(output_file + "_inter_");
-						files = split(file_names, " ");
-						for(int i = 0; i < files.size(); i++) 
-							delete_file(files[i]);
-					}
-
-				} else {
-					map<int, int>::iterator it;
-					for(it = maple_machines_idxs.begin(); it!=maple_machines_idxs.end(); it++)  {
-						if(!check_is_machine_alive(it -> first) && juice_finish_set.find(it -> second) == juice_finish_set.end()) {
-							int failed_machine_id = stoi(to_string(it -> first));
-							while(membership_list.find(next_mj_id) == membership_list.end() || maple_machines_idxs.find(next_mj_id) != maple_machines_idxs.end()) {
-								next_mj_id++;
-								if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
-							}
-							int failed_maple_index = maple_idxs_machines.find(maple_machines_idxs.find(failed_machine_id)->second) -> first;
-							maple_machines_idxs.erase(failed_machine_id);
-							maple_machines_idxs.insert({next_mj_id, failed_maple_index});
-							maple_idxs_machines.insert({failed_maple_index, next_mj_id});
-							string tmp = juice_msg + to_string(failed_maple_index);
-							send_msg(tmp, serverlist[next_mj_id - 1]);
-						}
-						
-					}
-				}
-			}
 			
 			char received_info[BUFFER_SIZE] = {0}; 
 			if(listen(server_fd, QUEUE_SIZE) < 0) {
@@ -934,65 +893,7 @@ int master() {
 					
 					send(new_server_fd, msg.c_str(), msg.length(), 0);
 					close(new_server_fd);
-				} else if(strcmp(received_info_vec[0].c_str(), "GET_SDFS_NAMES") == 0) {
-					string file_name = received_info_vec[2];
-					msg = get_filenames_by_prefix(received_info_vec[1]);
-					send(new_server_fd, msg.c_str(), msg.length(), 0);
-					close(new_server_fd);
-				} else if(strcmp(received_info_vec[0].c_str(), "MAPLE_SDFS") == 0) {
-					maple_msg = "";
-					string exe = received_info_vec[3];
-			        maple_machine_num = stoi(received_info_vec[4]);
-			        prefix = received_info_vec[5];
-			        string input_file = received_info_vec[6];
-
-			        maple_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-			        is_mapling = true;
-			        maple_msg = "MAPLE_EXE " + exe + " " + prefix + " " + input_file + to_string(maple_machine_num);
-
-			        for(int i = 0; i < maple_machine_num; i++) {
-			        	while(membership_list.find(next_mj_id) == membership_list.end()) {
-							next_mj_id++;
-							if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
-						}
-						string tmp = maple_msg + " " + to_string(i);
-						send_msg(tmp, serverlist[next_mj_id - 1]);
-						next_mj_id++;
-
-						maple_idxs_machines.insert({i, next_mj_id});
-						maple_machines_idxs.insert({next_mj_id, i});
-
-			        }
-					
-			        
-				}  else if(strcmp(received_info_vec[0].c_str(), "MAPLE_FINISH") == 0) {
-					int m_id = stoi(received_info_vec[1]);
-					maple_finish_set.insert(m_id);
-
-
-				} else if(strcmp(received_info_vec[0].c_str(), "JUICE_SDFS") == 0) {
-					string exe = received_info_vec[3];
-			        // maple_machine_num = stoi(received_info_vec[4]);
-			        // string prefix = received_info_vec[5];
-			        output_file = received_info_vec[6];
-			        delete_intermediate = stoi(received_info_vec[7]);
-
-			        juice_msg = "JUICE_EXE " + exe + " " + prefix + " " + output_file + to_string(maple_machine_num);
-
-			        set<int>::iterator it;
-			        for(int i = 0; i < maple_machine_num; i++) {
-			        	int juice_id = maple_idxs_machines.find(i) ->second;
-			        	string tmp = juice_msg + " " + to_string(i);
-						send_msg(tmp, serverlist[juice_id - 1]);
-			        }
-					
-			        
-				}  else if(strcmp(received_info_vec[0].c_str(), "JUICE_FINISH") == 0) {
-					int j_id = stoi(received_info_vec[1]);
-					juice_finish_set.insert(j_id);
-
-
-				} else {
+				}  else {
 					//confirmation about update
 					//update
 					printf("File exists. \n");
@@ -1076,6 +977,99 @@ int master() {
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
 				
+			}else if(strcmp(received_info_vec[0].c_str(), "GET_SDFS_NAMES") == 0) {
+				string file_name = received_info_vec[2];
+				msg = get_filenames_by_prefix(received_info_vec[1]);
+				send(new_server_fd, msg.c_str(), msg.length(), 0);
+				close(new_server_fd);
+			} else if(strcmp(received_info_vec[0].c_str(), "MAPLE_SDFS") == 0) {
+				printf("MAPLE_SDFS\n");
+				msg = "OK";
+				send(new_server_fd, msg.c_str(), msg.length(), 0);
+				close(new_server_fd);
+				
+				maple_msg = "";
+				string exe = received_info_vec[1];
+			    maple_machine_num = stoi(received_info_vec[2]);
+			    prefix = received_info_vec[3];
+		        string input_file = received_info_vec[4];
+
+			    maple_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+			    is_mapling = true;
+			    maple_msg = "MAPLE_EXE " + exe + " " + to_string(maple_machine_num) + " " + prefix + " " + input_file ;
+			    printf("maple_msg : %s\n", maple_msg.c_str());
+			    for(int i = 0; i < maple_machine_num; i++) {
+			        while(membership_list.find(next_mj_id) == membership_list.end()) {
+						next_mj_id++;
+						if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
+					}
+					string tmp = maple_msg + " " + to_string(i);
+					printf("Master to machine %d to maple msg: %s\n", next_mj_id, tmp.c_str());
+					send_msg(tmp, serverlist[next_mj_id - 1]);
+					next_mj_id++;
+
+					maple_idxs_machines.insert({i, next_mj_id});
+					maple_machines_idxs.insert({next_mj_id, i});
+
+			    }
+					
+			        
+			}  else if(strcmp(received_info_vec[0].c_str(), "MAPLE_FINISH") == 0) {
+				int m_id = stoi(received_info_vec[1]);
+				maple_finish_set.insert(m_id);
+
+				if(maple_finish_set.size() >= maple_machine_num) {
+					ready_to_juice = true;
+					is_mapling = false;
+					printf("Ready to reduce.");
+
+				}
+				close(new_server_fd);
+			} else if(strcmp(received_info_vec[0].c_str(), "JUICE_SDFS") == 0) {
+				string exe = received_info_vec[3];
+			    // maple_machine_num = stoi(received_info_vec[4]);
+			    // string prefix = received_info_vec[5];
+			    output_file = received_info_vec[6];
+			    delete_intermediate = stoi(received_info_vec[7]);
+
+			    juice_msg = "JUICE_EXE " + exe + " " + prefix + " " + output_file + to_string(maple_machine_num);
+
+			    set<int>::iterator it;
+			    for(int i = 0; i < maple_machine_num; i++) {
+			        int juice_id = maple_idxs_machines.find(i) ->second;
+			        string tmp = juice_msg + " " + to_string(i);
+					send_msg(tmp, serverlist[juice_id - 1]);
+			    }
+			    close(new_server_fd);
+					
+			        
+			}  else if(strcmp(received_info_vec[0].c_str(), "JUICE_FINISH") == 0) {
+				int j_id = stoi(received_info_vec[1]);
+				juice_finish_set.insert(j_id);
+
+				if(juice_finish_set.size() >= maple_machine_num) {
+					combine_results(output_file);
+
+					cout << "JOICE finished";
+
+					is_juicing = false;
+					if(delete_intermediate == 1) {
+						//delete maple output
+						string file_names = get_filenames_by_prefix(prefix);
+						vector<string> files = split(file_names, " ");
+						for(int i = 0; i < files.size(); i++) 
+							delete_file(files[i]);
+
+							//delete reduce output
+						file_names = get_filenames_by_prefix(output_file + "_inter_");
+						files = split(file_names, " ");
+						for(int i = 0; i < files.size(); i++) 
+							delete_file(files[i]);
+					}
+
+				}
+				close(new_server_fd);
+
 			}
 			
 		}
@@ -1418,10 +1412,19 @@ int test(){
 			}
 
 			if(strcmp(ptr, "MAPLE") == 0) {
-				string tmp = received_info;
-				string tmp2 = std::string("MAPLE_SDFS ") + received_info;
-				send_msg(tmp2, master_server);
+				ptr = strtok(NULL, delim);
+				string para_exe = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string para_num = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string para_prefix = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string para_input = (string) ptr;
+				string tmp = std::string("MAPLE_SDFS ") + para_exe + " "+ para_num + " "+ para_prefix + " "+ para_input;
+				printf("[MAPLE] The msg to master is: %s\n", tmp.c_str());
+				send_msg(tmp, master_server);
 				msg = "OK";
+				printf("server sent OK\n");
 			}
 
 			if(strcmp(ptr, "JUICE") == 0) {
@@ -1557,60 +1560,69 @@ int file_server() {
 			cout<<"file names sent\n";
 		} else if(strcmp(received_vector[0].c_str(),"MAPLE_EXE")==0) {
 			string exeFile = received_vector[1];
-			string maple_prefix = received_vector[2];
-			string input = received_vector[3];
-			int maple_task_num = stoi(received_vector[4]);
+			int maple_task_num = stoi(received_vector[2]);
+			string maple_prefix = received_vector[3];
+			string input = received_vector[4];
 			int current_id = stoi(received_vector[5]);
+			
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			close(new_server_fd);
 
-			get(input, input);
+			if(sdfs_file_set.find(input) == sdfs_file_set.end()) get(input, input);
+
 			int line = 0;
 			ifstream input_file;
-			input_file.open(input,ios::in); //open a file to perform read operation using file object
+			string dir = DIR_SDFS + to_string(myinfo.id);
+			input_file.open(dir + "/" + input,ios::in); //open a file to perform read operation using file object
 		   	if (input_file.is_open()){   //checking whether the file is open
-		      string tp;
-		      string ten_lines = "";
-		      while(getline(input_file, tp)){ //read data from file object and put it into string.
-		      	if(line % 10 == 0 && (line / 10) % maple_task_num == current_id && line / 10 != 0) {
-		      		maple(exeFile, ten_lines, maple_prefix, maple_task_num);
-		      		ten_lines = "";
+		   		printf("file %s is open to maple\n", input.c_str());
+		   		string dir = DIR_SDFS + to_string(myinfo.id);
+
+		      	string tp;
+		    	string ten_lines = "";
+		    	while(getline(input_file, tp)){ //read data from file object and put it into string.
+		      		if(line % 10 == 0 && (line / 10) % maple_task_num == current_id && line / 10 != 0) {
+		      			maple(exeFile, ten_lines, maple_prefix, maple_task_num, current_id, dir);
+		      			ten_lines = "";
+		      		}
+		        	if( (line / 10) % maple_task_num == current_id ) {
+		         		ten_lines += tp;
+		        	}
+		        	line++;
+
 		      	}
-		        if( (line / 10) % maple_task_num == current_id ) {
-		         	ten_lines += tp;
-		        }
-		        line++;
 
-		      }
+		      	//maple_output_targetmachineid_key_machineid
 
-		      //maple_output_targetmachineid_key_machineid
+		    	//find all local files with the prefix maple_output_
+				DIR *dp;
+		    	struct dirent *dirp;
+		    	vector<string> files;
+		    	if((dp = opendir((dir + "/").c_str())) == NULL) {
+		      		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
+		      		return errno;
+		    	}
+		   		while ((dirp = readdir(dp)) != NULL) {
+		    		string name = dirp->d_name;
+		    		if(name.find(maple_prefix) != std::string::npos) {
+						files.push_back(string(dirp->d_name));
+					}
+		    	}
+		    	closedir(dp);
 
-		    //find all local files with the prefix maple_output_
-		    string dir = "./";
-			DIR *dp;
-		    struct dirent *dirp;
-		    vector<string> files;
-		    if((dp = opendir(dir.c_str())) == NULL)
-		    {
-		      cout << "Error(" << errno << ") opening " << dir << endl;
-		      return errno;
-		    }
-		    while ((dirp = readdir(dp)) != NULL) {
-		    	string name = dirp->d_name;
-		    	if(name.find(maple_prefix) != std::string::npos) {
-					files.push_back(string(dirp->d_name));
-				}
-		    }
-		    closedir(dp);
-
-		    //put all maple results into SDFS
-		    for(string file: files) {
-		    	put(file, file);
-		    }
-		    string tmp = "MAPLE_FINISH " + to_string(current_id);
-		    send_msg(tmp, master_server);
-		    input_file.close(); //close the file object.
+		    	//put all maple results into SDFS
+		    	for(string file: files) {
+		    		put(file, file);
+		    	}
+		    	string tmp = "MAPLE_FINISH " + to_string(current_id);
+		    	send_msg(tmp, master_server);
+		    	input_file.close(); //close the file object.
 		   }
 			
 		} else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
+			string dir = DIR_SDFS + to_string(myinfo.id);
+			
 			string exeFile = received_vector[1];
 			string juice_prefix = received_vector[2];
 			string output = received_vector[3];
@@ -1619,7 +1631,7 @@ int file_server() {
 
 			vector<string> files = get_(juice_prefix + "_" + received_vector[5]);
 
-			juice(exeFile, files, output + "_inter_" + to_string(current_id));
+			juice(exeFile, files, output + "_inter_" + to_string(current_id), dir);
 
 			put(output + "_inter_" + to_string(current_id), output + "_inter_" + to_string(current_id));
 			string tmp = "JUICE_FINISH " + to_string(current_id);
