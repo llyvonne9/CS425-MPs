@@ -139,9 +139,11 @@ int init_para(int argc, char const *argv[]){
     string action = (string) argv[2];
     
     node.addr = id_to_ip.find(stoi(argv[1]))->second;
-    cmd = "TEST "+ (string) argv[2];
+    cmd = "TEST "+ (string) argv[2];    //includes STORE
         
-    if(strcmp(action.c_str(), "JOIN") == 0 || strcmp(action.c_str(), "LEAVE") == 0 || strcmp(action.c_str(), "INFO") == 0) cmd = "TEST "+ action;
+    if(strcmp(action.c_str(), "JOIN") == 0 || strcmp(action.c_str(), "LEAVE") == 0 
+        || strcmp(action.c_str(), "INFO") == 0) 
+        cmd = "TEST "+ action;
     else if(strcmp(action.c_str(), "GET") == 0) {
         cmd = "TEST " + action + " "+ (string) argv[3] + " " + (string) argv[4];
     }else if(strcmp(action.c_str(), "PUT") == 0) {
