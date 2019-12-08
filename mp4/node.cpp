@@ -101,7 +101,7 @@ int maple_machine_num = 0;
 int delete_intermediate = 0;
 string output_file = "";
 string prefix = "";
-bool load_file_list = true;
+bool is_restore_snapshot = false;
 
 //Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server, int socktype){   
@@ -206,11 +206,18 @@ int send_msg(string& msg, struct server_para server){
     send(sock, msg.c_str(), msg.length(), 0);
     // printf("send to %d a cmd %s \n ", server.id, msg.c_str());
 
-	valread = read(sock, recv_info, BUFFER_SIZE);
-	recv_info[valread] = '\0';
+	//valread = read(sock, recv_info, BUFFER_SIZE);
+	//recv_info[valread] = '\0';
 	// printf("\nThe info received from %d is: %s\n", server.id, recv_info); //neighbor leave (join might be optional)
+	//msg = string(recv_info);
+	msg = "";
+	while ((valread = read(sock, recv_info, BUFFER_SIZE)) > 0){ 
+		 if (valread < BUFFER_SIZE-1){
+            recv_info[valread] = '\0';
+        }
+        msg += recv_info;
+    }
 
-	msg = string(recv_info);
     close(sock);
 	return 0;
 }
@@ -611,8 +618,8 @@ int read_sdfs_file_list() {
 int init_para(int argc, char const *argv[]){
 	introducer.port = PORT_INTRO;
 	if (argc >4){
-		load_file_list = strcmp(argv[4], "1") == 0;
-	} else {load_file_list = true;}
+		is_restore_snapshot = strcmp(argv[4], "1") == 0;
+	} else {is_restore_snapshot = false;}
 	if (argc >3){
 		master_id = stoi(argv[3]);
 	} else { master_id = 2;}
@@ -648,7 +655,7 @@ int init_para(int argc, char const *argv[]){
 		popen(cmd.c_str(), "r");
 	} catch (std::exception const &e) {}
 
-	if (load_file_list) 
+	if (is_restore_snapshot) 
 		read_sdfs_file_list();
 	return 0;
 }
@@ -896,6 +903,19 @@ int delete_file(string file_name) {
 	return 1;
 }
 
+// send a long msg to an built socket, WITHOUT closing the socket
+int send_msg_to_sock(string &msg, int sock){
+	int total_sent = 0;
+	int n_sent = 0;
+	//send the msg segment by segment
+	while (total_sent < msg.length()){
+		int n_bytes = msg.length() - total_sent < BUFFER_SIZE - 1? msg.length() - total_sent: BUFFER_SIZE - 1;
+		n_sent = send(sock, msg.c_str() + total_sent, n_bytes, 0);
+		total_sent += n_sent;
+		//printf("n_sent=%d\n", n_sent);
+	}
+	//close(new_server_fd);
+}
 
 int master() {
 	//struct
@@ -1046,7 +1066,8 @@ int master() {
 					
 				}
 
-			} else if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0 || strcmp(received_info_vec[0].c_str(), "LS_SDFS") == 0) {
+			} else if(strcmp(received_info_vec[0].c_str(), "DELETE_SDFS") == 0 
+					|| strcmp(received_info_vec[0].c_str(), "LS_SDFS") == 0) {
 				string file_name = received_info_vec[1];
 				if(!check_file_exists(file_name)) {
 
@@ -1075,9 +1096,33 @@ int master() {
 				//received_info_vec[1] is from which machine id
 				string file_name = received_info_vec[2];
 				msg = get_filenames_by_prefix(file_name);
+				send_msg_to_sock(msg, new_server_fd);
+				//send(new_server_fd, msg.c_str(), msg.length(), 0);
+				close(new_server_fd);
+			}else if (strcmp(received_info_vec[0].c_str(), "M_SAVE_SNAPSHOT")==0){
+				for (auto i : membership_list){
+					msg = "F_SAVE_SNAPSHOT";
+					send_msg(msg, serverlist[i-1]);
+					if (msg != "OK"){
+						break;
+					}
+				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
-			} else if(strcmp(received_info_vec[0].c_str(), "MAPLE_SDFS") == 0) {
+
+			}else if (strcmp(received_info_vec[0].c_str(), "M_LOAD_SNAPSHOT")==0){
+				for (auto i : membership_list){
+					msg = "F_LOAD_SNAPSHOT";
+					send_msg(msg, serverlist[i-1]);
+					if (msg != "OK"){
+						break;
+					}
+				}
+				//msg = "OK"; msg would be modified as "OK" from file_server return
+				send(new_server_fd, msg.c_str(), msg.length(), 0);
+				close(new_server_fd);
+				
+			}else if(strcmp(received_info_vec[0].c_str(), "MAPLE_SDFS") == 0) {
 				printf("[MASTER] MAPLE_SDFS\n");
 				maple_finish_set.clear();
 
@@ -1504,9 +1549,14 @@ int test(){
 				msg = "OK";
 			} 
 
-			if(strcmp(ptr, "SAVE_FILE_LIST") == 0){
-				save_sdfs_file_list();
-				msg = "OK";
+			if(strcmp(ptr, "SAVE_SNAPSHOT") == 0){
+				msg = "M_SAVE_SNAPSHOT";
+				send_msg(msg, master_server);
+				//msg would be modified as "OK" from Master
+			}
+			if(strcmp(ptr, "LOAD_SNAPSHOT") == 0){
+				msg = "M_LOAD_SNAPSHOT";
+				send_msg(msg, master_server);
 			}
 
 			if(strcmp(ptr, "LS") == 0) {
@@ -1674,6 +1724,14 @@ int file_server() {
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
 			cout<<"file names sent\n";
+		} else if(strcmp(received_vector[0].c_str(),"F_SAVE_SNAPSHOT")==0) {
+			save_sdfs_file_list();
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+		} else if(strcmp(received_vector[0].c_str(),"F_LOAD_SNAPSHOT")==0) {
+			read_sdfs_file_list();
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
 		} 
 
 		close(new_server_fd);

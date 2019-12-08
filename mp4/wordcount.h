@@ -37,6 +37,7 @@ map<string, string> maple_helper(string contents) {
 map<string, string> juice_helper(vector<string> files, string dir) {
 	int count = 0;
 	map<string, string> counts; 
+	cout << dir + "/" + files[0] << "\n";
 	for(int i = 0; i < files.size(); i++) {
 		ifstream fin(dir + "/" + files[i]); 
 	    const int LINE_LENGTH = 100; 
@@ -47,8 +48,10 @@ map<string, string> juice_helper(vector<string> files, string dir) {
 	   	string word = split(files[i], "_")[2];
 	   	if(counts.find(word) != counts.end()) {
 	   		counts.find(word) -> second = to_string(stoi(counts.find(word) -> second) + count);
+	   	} else {
+	   		counts.insert({word, to_string(count)});
 	   	}
-
+	   	fin.close();
 	}
 	return counts;
 }

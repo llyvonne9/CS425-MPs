@@ -187,6 +187,10 @@ int init_para(int argc, char const *argv[]){
             return -1;
         }
         cmd = "TEST " + action + " " + (string) argv[3] + " " + (string) argv[4] + " " + (string) argv[5] + " " + (string) argv[6] + " " + (string) argv[7];
+    }else if(strcmp(action.c_str(), "SAVE_SNAPSHOT") == 0) {
+        cmd = "TEST " + action;
+    }else if(strcmp(action.c_str(), "LOAD_SNAPSHOT") == 0) {
+        cmd = "TEST " + action;
     }
 
     return 0;

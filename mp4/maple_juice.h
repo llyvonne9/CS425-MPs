@@ -58,6 +58,7 @@ int juice(string exe, vector<string> files, string output, string dir, string di
 	else 
 		juice_map = task2::juice_helper(files, dir); 
 	ofstream outfile;
+	cout << dir_maple + "/" + output <<"\n";
 	outfile.open(dir_maple + "/" + output, std::ios_base::app);
 	for (std::map<string, string>::iterator it=juice_map.begin(); it!=juice_map.end(); ++it) {
 		outfile << (it -> first) + " " + (it -> second) + "\n"; 
