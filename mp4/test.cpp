@@ -166,6 +166,27 @@ int init_para(int argc, char const *argv[]){
             return -1;
         }
         cmd = "TEST " + action + " "+ (string) argv[3];
+    } else if(strcmp(action.c_str(), "MAPLE") == 0) {
+        string exe = argv[3];
+        string machine_num = argv[4];
+        string prefix = argv[5];
+        string input_file = argv[6];
+        if(argc < 7) {
+            printf("Wrong parameters\n");
+            return -1;
+        }
+        cmd = "TEST " + action + " " + (string) argv[3] + " " + (string) argv[4] + " " + (string) argv[5]+ " " + (string) argv[6];
+    } else if(strcmp(action.c_str(), "JUICE") == 0) {
+        string exe = argv[3];
+        string machine_num = argv[4];
+        string prefix = argv[5];
+        string output_file = argv[6];
+        string delete_input = argv[7];
+        if(argc < 8) {
+            printf("Wrong parameters\n");
+            return -1;
+        }
+        cmd = "TEST " + action + " " + (string) argv[3] + " " + (string) argv[4] + " " + (string) argv[5] + " " + (string) argv[6] + " " + (string) argv[7];
     }
 
     return 0;
