@@ -39,6 +39,7 @@ using namespace std::chrono;
 #define DIR_TEMP "DIR_TEMP"
 #define MIN_UPDATE_DURATION 60000
 #define RESPONDE_TIMEOUT 20
+#define SDFS_FILE_LIST "sdfs_file_list"
 
 //Server parameters to assign and to print
 struct server_para {
@@ -566,6 +567,40 @@ int monitor(){ //UDP monitor heartbeat
     return 0; 
 }
 
+int save_sdfs_file_list() {
+	ofstream myfile;
+	myfile.open (SDFS_FILE_LIST);
+	set<string>::iterator it;
+	for(it = sdfs_file_set.begin(); it!=sdfs_file_set.end(); it++)  {
+		//printf("%s\n", (*it).c_str());
+		myfile << (*it).c_str() << "\n";
+	}
+	myfile.close();
+	return 0;	
+}
+
+int read_sdfs_file_list() {
+	ifstream myfile;
+	try{
+		myfile.open (SDFS_FILE_LIST);
+	} catch (std::exception const &e) {
+		cout<<"Maybe not SDFS_FILE_LIST file yet.";
+	}
+
+	if(!myfile) {
+		cout << "While opening a file an error is encountered" << endl;
+		return -1;
+	}
+	sdfs_file_set.clear();
+	while(!myfile.eof()){
+		string a;
+		myfile >> a;
+		sdfs_file_set.insert(a);
+	}
+	myfile.close();
+	return 0;	
+}
+
 //Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
 	introducer.port = PORT_INTRO;
@@ -603,6 +638,8 @@ int init_para(int argc, char const *argv[]){
 		string cmd = "mkdir "+ dir;
 		popen(cmd.c_str(), "r");
 	} catch (std::exception const &e) {}
+
+	read_sdfs_file_list();
 	return 0;
 }
 
@@ -665,8 +702,10 @@ string get_filenames_by_prefix (string pre) {
 	string msg = "";
 	for (map<string, file_para>::iterator it = file_map.begin(); it!=file_map.end(); ++it) {
     	string name = it->first;
-    	if(name.find(pre) ==  std::string::npos) {
-    		return "";
+    	//if(name.find(pre) ==  std::string::npos) {
+    	cout<<name.substr(0,pre.length()) << " " << "pre" << " "<< to_string(name.substr(0,pre.length()) == pre);
+    	if(name.substr(0,pre.length()) == pre) {
+    		continue;
     	}
     	set<int>::iterator it2;
 		for(it2 = file_map[name].nodes.begin(); it2!=file_map[name].nodes.end(); it2++)  {
@@ -811,7 +850,7 @@ int combine_results(string output) {
 	ofstream outfile;
   	outfile.open (output, ios::app);
 	for(int i = 0; i < maple_machine_num; i++) {
-		string tmp_file = DIR_TEMP+to_string(myinfo.id)+"/juiceoutput_" + to_string(i)
+		string tmp_file = DIR_TEMP+to_string(myinfo.id)+"/juiceoutput_" + to_string(i);
 		get("juiceoutput_" + to_string(i), tmp_file); 
 		
 		string line;
@@ -1016,8 +1055,9 @@ int master() {
 				close(new_server_fd);
 				
 			}else if(strcmp(received_info_vec[0].c_str(), "GET_SDFS_NAMES") == 0) {
+				//received_info_vec[1] is from which machine id
 				string file_name = received_info_vec[2];
-				msg = get_filenames_by_prefix(received_info_vec[1]);
+				msg = get_filenames_by_prefix(file_name);
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
 			} else if(strcmp(received_info_vec[0].c_str(), "MAPLE_SDFS") == 0) {
@@ -1403,7 +1443,7 @@ int test(){
 							string dir = DIR_SDFS + to_string(myinfo.id);
 							string cmd = "rm "+ dir + "/" + target_file;
 							popen(cmd.c_str(), "r");
-							sdfs_file_set.erase(target_file);
+							sdfs_file_set.erase(target_file); save_sdfs_file_list();
 							ok_count++;
 						}
 						
@@ -1588,7 +1628,7 @@ int file_server() {
 			popen(cmd.c_str(), "r");
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
-			sdfs_file_set.erase(file_name);
+			sdfs_file_set.erase(file_name); save_sdfs_file_list();
 			printf("%s is deleted successfully\n\n", file_name.c_str());
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
 			string msg = "OK";
@@ -1599,7 +1639,7 @@ int file_server() {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			get_file(received_vector[1], new_server_fd, false);
-    		sdfs_file_set.insert(received_vector[1]);
+    		sdfs_file_set.insert(received_vector[1]); save_sdfs_file_list();
 		} else if(strcmp(received_vector[0].c_str(),"SEND_DUPICATE")==0) {
 			send_dup(received_vector[1], stoi(received_vector[2]));
 			string msg = "OK";
@@ -1607,7 +1647,7 @@ int file_server() {
 		} else if(strcmp(received_vector[0].c_str(),"RECV_DUPICATE")==0) {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
-			sdfs_file_set.insert(received_vector[1]);
+			sdfs_file_set.insert(received_vector[1]); save_sdfs_file_list();
 			get_file(received_vector[1], new_server_fd,false);
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
