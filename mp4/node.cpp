@@ -1050,6 +1050,7 @@ int master() {
 
 					maple_idxs_machines.insert({i, next_mj_id});
 					maple_machines_idxs.insert({next_mj_id, i});
+					next_mj_id++;
 
 					next_mj_id++;
 
@@ -1742,6 +1743,9 @@ int map_reduce() {
 			
 		} else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
 			string dir = DIR_SDFS + to_string(myinfo.id);
+			string msg = "Maybe OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			close(new_server_fd);
  			// "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + to_string(maple_machine_num);
 
 			string exeFile = received_vector[1];
