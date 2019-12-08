@@ -1045,10 +1045,10 @@ int master() {
 					string tmp = maple_msg + " " + to_string(i);
 					// printf("Master to machine %d to maple msg: %s\n", next_mj_id, tmp.c_str());
 					send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
-					next_mj_id++;
 
 					maple_idxs_machines.insert({i, next_mj_id});
 					maple_machines_idxs.insert({next_mj_id, i});
+					next_mj_id++;
 
 			    }
 					
@@ -1075,7 +1075,7 @@ int master() {
 			    output_file = received_info_vec[4];
 			    delete_intermediate = stoi(received_info_vec[5]);
 
-			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + to_string(maple_machine_num);
+			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + " " + to_string(maple_machine_num);
 
 			    set<int>::iterator it;
 			    for(int i = 0; i < maple_machine_num; i++) {
@@ -1739,6 +1739,9 @@ int map_reduce() {
 			
 		} else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
 			string dir = DIR_SDFS + to_string(myinfo.id);
+			string msg = "Maybe OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			close(new_server_fd);
  			// "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + to_string(maple_machine_num);
 
 			string exeFile = received_vector[1];
