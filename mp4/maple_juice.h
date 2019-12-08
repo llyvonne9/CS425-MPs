@@ -48,14 +48,14 @@ int maple(string exe, string contents, string prefix, int maple_task_num, int cu
 	return 0;
 }
 
-int juice(string exe, vector<string> files, string output, string dir) {
+int juice(string exe, vector<string> files, string output, string dir, string dir_maple) {
 	map<string, string> juice_map;
 	if(strcmp(exe.c_str(), "wordcount") == 0)
-		juice_map = task1::juice_helper(files); 
+		juice_map = task1::juice_helper(files, dir); 
 	else 
-		juice_map = task2::juice_helper(files); 
+		juice_map = task2::juice_helper(files, dir); 
 	ofstream outfile;
-	outfile.open(dir + "/" + output, std::ios_base::app);
+	outfile.open(dir_maple + "/" + output, std::ios_base::app);
 	for (std::map<string, string>::iterator it=juice_map.begin(); it!=juice_map.end(); ++it) {
 		outfile << (it -> first) + " " + (it -> second) + "\n"; 
 	}
