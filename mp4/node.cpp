@@ -811,10 +811,11 @@ int combine_results(string output) {
 	ofstream outfile;
   	outfile.open (output, ios::app);
 	for(int i = 0; i < maple_machine_num; i++) {
-		get(output + "_inter_" + to_string(i), output + "_inter_" + to_string(i)); 
+		string tmp_file = DIR_TEMP+to_string(myinfo.id)+"/juiceoutput_" + to_string(i)
+		get("juiceoutput_" + to_string(i), tmp_file); 
 		
 		string line;
-		ifstream intermediate_output (output + "_inter_" + to_string(i));
+		ifstream intermediate_output (tmp_file);
 		if (intermediate_output.is_open()) {
 		    while ( getline (intermediate_output,line) ) {
 		    	outfile << line;
@@ -1104,7 +1105,7 @@ int master() {
 							delete_file(files[i]);
 
 							//delete reduce output
-						file_names = get_filenames_by_prefix(output_file + "_inter_");
+						file_names = get_filenames_by_prefix("juiceoutput_");
 						files = split(file_names, " ");
 						for(int i = 0; i < files.size(); i++) 
 							delete_file(files[i]);
@@ -1752,10 +1753,9 @@ int map_reduce() {
 
 			vector<string> files = get_(juice_prefix + "_" + received_vector[5], current_id);
 
-			juice(exeFile, files, output + "_inter_" + to_string(current_id), dir, DIR_TEMP + to_string(myinfo.id));
+			juice(exeFile, files, "juiceoutput_" + to_string(current_id), dir, DIR_TEMP + to_string(myinfo.id));
 
-			put(DIR_TEMP + to_string(myinfo.id) + '/' + output + "_inter_" + to_string(current_id) , 
-				output + "_inter_" + to_string(current_id));
+			put(DIR_TEMP + to_string(myinfo.id) + '/' + "juiceoutput_" + to_string(current_id) ,  "juiceoutput_" + to_string(current_id));
 			string tmp = "JUICE_FINISH " + to_string(current_id);
 			send_msg(tmp, master_server);
 			
