@@ -36,6 +36,7 @@ using namespace std::chrono;
 #define NUM_NBR 4
 #define REPLICA 2
 #define DIR_SDFS "DIR_SDFS"
+#define DIR_MAPLE "DIR_MAPLE"
 #define MIN_UPDATE_DURATION 60000
 #define RESPONDE_TIMEOUT 20
 
@@ -775,7 +776,7 @@ vector<string> get_(string sdfs_filename_prefix, int current_index) {
 	names = split(msg, " "); 
 
 	for (int i = 0; i < names.size(); i++) {
-		if(stoi(split(names[i], "_")[3]) == current_index) continue;
+		// if(stoi(split(names[i], "_")[3]) == current_index) continue;
 		msg = "GET " + split(names[i], "_")[0];
 		int id = stoi(split(names[i], "_")[1]);
 
@@ -1241,8 +1242,8 @@ int put(string local_file, string target_file) {
 		valread = read(sock , buffer, BUFFER_SIZE) < 0;
 
 		// printf("(PUT)received %s before sending file\n", buffer);
-		string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
-		int total_sent = send_file(dir_sdfs + "/" + local_file, sock);
+		// string dir_sdfs = DIR_SDFS + to_string(myinfo.id);
+		int total_sent = send_file(local_file, sock);
 		put_count++;
 
 	    close(sock);
@@ -1401,7 +1402,7 @@ int test(){
 				string sdfs_file = (string) ptr;
 				printf("%s\n", sdfs_file.c_str());
 				string sfds_dir = DIR_SDFS + to_string(myinfo.id);
-				FILE *fp = fopen((sfds_dir + "/" + local_file).c_str(), "rb");
+				FILE *fp = fopen(local_file.c_str(), "rb");
 				if (fp == NULL) {msg = "NOT OK"; printf("File not found\n");}
 				else{
 					int put_count = put(local_file, sdfs_file);
@@ -1726,11 +1727,16 @@ int map_reduce() {
 
 			int line = 0;
 			ifstream input_file;
-			string dir = DIR_SDFS + to_string(myinfo.id);
+			string dir = DIR_MAPLE + to_string(myinfo.id);
 			input_file.open(dir + "/" + input,ios::in); //open a file to perform read operation using file object
+			try {
+				string cmd = "mkdir "+ dir;
+				popen(cmd.c_str(), "r");
+			} catch (std::exception const &e) {
+
+			}
 		   	if (input_file.is_open()){   //checking whether the file is open
 		   		printf("file %s is open to maple\n", input.c_str());
-		   		string dir = DIR_SDFS + to_string(myinfo.id);
 
 		      	string tp;
 		    	string ten_lines = "";
@@ -1758,7 +1764,8 @@ int map_reduce() {
 		    	}
 		   		while ((dirp = readdir(dp)) != NULL) {
 		    		string name = dirp->d_name;
-		    		if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
+		    		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
+		    		if(name.find(maple_prefix) != std::string::npos) {
 		    			// printf("%s\n", dirp->d_name);
 						files.push_back(string(dirp->d_name));
 					}
@@ -1771,7 +1778,7 @@ int map_reduce() {
 		    	//put all maple results into SDFS
 		    	for(string file: files) {
 		    		
-		    		put(file, file);
+		    		put(dir + "/" + file, file);
 		    	}
 
 		    	printf("MAPLE PUT FINISHED YEAH.\n");
@@ -1783,6 +1790,7 @@ int map_reduce() {
 			
 		} else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
 			string dir = DIR_SDFS + to_string(myinfo.id);
+			string dir_maple = DIR_SDFS + to_string(myinfo.id);
 
 			string exeFile = received_vector[1];
 			string juice_prefix = received_vector[2];
@@ -1792,9 +1800,9 @@ int map_reduce() {
 
 			vector<string> files = get_(juice_prefix + "_" + received_vector[5], current_id);
 
-			juice(exeFile, files, output + "_inter_" + to_string(current_id), dir);
+			juice(exeFile, files, output + "_inter_" + to_string(current_id), dir, dir_maple);
 
-			put(output + "_inter_" + to_string(current_id), output + "_inter_" + to_string(current_id));
+			put(dir_maple + "/" + output + "_inter_" + to_string(current_id), output + "_inter_" + to_string(current_id));
 			string tmp = "JUICE_FINISH " + to_string(current_id);
 			send_msg(tmp, master_server);
 			
