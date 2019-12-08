@@ -25,6 +25,10 @@ using namespace std;
 #define JOIN 1
 #define LEAVE 0
 
+//This is just used in sleep(), so they can be removed later
+int wait_time = 500; //ms can use 80 for emulating msg loss
+int heartbeat_time = wait_time/8;
+
 set<int> memList;
 
 //split a string to vector based on a delimiter
@@ -191,6 +195,7 @@ int main(int arc, char const *argv[]) {
     getIPs(d);
 
 	while(true){
+		sleep(heartbeat_time/1000);
 		char received_info[BUFFER_SIZE] = {0}; 
 		if(listen(server_fd, QUEUE_SIZE) < 0) {
 			perror("[Error]: Fail to listen to incoming connections");
