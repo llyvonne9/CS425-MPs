@@ -23,6 +23,7 @@ map<string, string> maple_helper(string contents) {
 	vector<string> words = split(contents, " ");
 	for(int i = 0; i < words.size(); i++) {
 		string word = words[i];
+		if(word.length() == 0) continue;
 		if(count.find(word) != count.end()) {
 			count.find(word) -> second = to_string(stoi(count.find(word) -> second) + 1);
 		} else {

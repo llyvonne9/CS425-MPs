@@ -788,12 +788,12 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 //machine get file sdfs_filename from master and store as local_filename
 int get(string sdfs_filename, string local_filename) {
 	// to master
-	// printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
+	printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
 	string msg = "GET_SDFS "+ sdfs_filename;
 	send_msg(msg, master_server);
 	if (msg.length() == 0){
 		printf("Master server tells me no such file.");
-		return 1;
+		return -1;
 	}
 	int id = stoi(msg); 
 	
@@ -828,6 +828,7 @@ vector<string> get_(string sdfs_filename_prefix, int current_index) {
 	send_msg(msg, master_server);
 
 	if (msg.length() == 0){
+		printf("get_\n");
 		printf("Master server tells me no such file.");
 		return names;
 	}
