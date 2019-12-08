@@ -26,7 +26,7 @@ vector<string> split (string s, string delimiter) {
     return res;
 }
 
-int maple(string exe, string contents, string prefix, int maple_task_num) {
+int maple(string exe, string contents, string prefix, int maple_task_num, int current_index, string dir) {
 	map<string, string> maple_map;
 	if(strcmp(exe.c_str(), "wordcount") == 0)
 		maple_map = task1::maple_helper(contents); 
@@ -39,22 +39,23 @@ int maple(string exe, string contents, string prefix, int maple_task_num) {
 		std::hash<std::string> str_hash;
 		int h = str_hash(word) % maple_task_num;
 		ofstream outfile;
-		outfile.open(prefix + "_" + to_string(h) + "_" + word, std::ios_base::app);
+		outfile.open(dir + "/" + prefix + "_" + to_string(h) + "_" + word + "_" + to_string(current_index), std::ios_base::app);
 		outfile << count + "\n"; 
+		// printf("Result: %s %s\n", word.c_str(), count.c_str());
 		outfile.close();
 	}
 	
 	return 0;
 }
 
-int juice(string exe, vector<string> files, string output) {
+int juice(string exe, vector<string> files, string output, string dir) {
 	map<string, string> juice_map;
 	if(strcmp(exe.c_str(), "wordcount") == 0)
 		juice_map = task1::juice_helper(files); 
 	else 
 		juice_map = task2::juice_helper(files); 
 	ofstream outfile;
-	outfile.open(output, std::ios_base::app);
+	outfile.open(dir + "/" + output, std::ios_base::app);
 	for (std::map<string, string>::iterator it=juice_map.begin(); it!=juice_map.end(); ++it) {
 		outfile << (it -> first) + " " + (it -> second) + "\n"; 
 	}
