@@ -42,6 +42,8 @@ using namespace std::chrono;
 #define RESPONDE_TIMEOUT 20
 #define SDFS_FILE_LIST "sdfs_file_list"
 
+#define DEBUG_J true
+
 //Server parameters to assign and to print
 struct server_para {
     //char *addr;
@@ -99,6 +101,7 @@ int maple_machine_num = 0;
 int delete_intermediate = 0;
 string output_file = "";
 string prefix = "";
+bool load_file_list = true;
 
 //Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server, int socktype){   
@@ -352,7 +355,9 @@ int node_quit_proc(int id){
 	}
 	printf("fail_id:%d, master_id:%d, myinfo.id:%d\n", id, master_id, myinfo.id);
 	if (master_id == myinfo.id){ //I'm the master
-		re_replica(id);
+		if (!DEBUG_J) {
+			re_replica(id);
+		}
 
 		if(is_mapling && maple_machines_idxs.find(id) != maple_machines_idxs.end() && maple_finish_set.find(maple_machines_idxs.find(id) -> second) == maple_finish_set.end()) {
 			while(membership_list.find(next_mj_id) == membership_list.end() || maple_machines_idxs.find(next_mj_id) != maple_machines_idxs.end()) {
@@ -605,6 +610,9 @@ int read_sdfs_file_list() {
 //Set parameters that read from command line and file
 int init_para(int argc, char const *argv[]){
 	introducer.port = PORT_INTRO;
+	if (argc >4){
+		load_file_list = (argv[4]=="1");
+	} else {load_file_list = true;}
 	if (argc >3){
 		master_id = stoi(argv[3]);
 	} else { master_id = 2;}
@@ -640,7 +648,8 @@ int init_para(int argc, char const *argv[]){
 		popen(cmd.c_str(), "r");
 	} catch (std::exception const &e) {}
 
-	read_sdfs_file_list();
+	if (load_file_list) 
+		read_sdfs_file_list();
 	return 0;
 }
 
@@ -1446,7 +1455,7 @@ int test(){
 							string dir = DIR_SDFS + to_string(myinfo.id);
 							string cmd = "rm "+ dir + "/" + target_file;
 							popen(cmd.c_str(), "r");
-							sdfs_file_set.erase(target_file); save_sdfs_file_list();
+							sdfs_file_set.erase(target_file);
 							ok_count++;
 						}
 						
@@ -1489,6 +1498,11 @@ int test(){
 				store();
 				msg = "OK";
 			} 
+
+			if(strcmp(ptr, "SAVE_FILE_LIST") == 0){
+				save_sdfs_file_list();
+				msg = "OK";
+			}
 
 			if(strcmp(ptr, "LS") == 0) {
 				printf("node TEST LS\n");
@@ -1631,7 +1645,7 @@ int file_server() {
 			popen(cmd.c_str(), "r");
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
-			sdfs_file_set.erase(file_name); save_sdfs_file_list();
+			sdfs_file_set.erase(file_name);
 			printf("%s is deleted successfully\n\n", file_name.c_str());
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
 			string msg = "OK";
@@ -1642,7 +1656,7 @@ int file_server() {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			get_file(received_vector[1], new_server_fd, false);
-    		sdfs_file_set.insert(received_vector[1]); save_sdfs_file_list();
+    		sdfs_file_set.insert(received_vector[1]);
 		} else if(strcmp(received_vector[0].c_str(),"SEND_DUPICATE")==0) {
 			send_dup(received_vector[1], stoi(received_vector[2]));
 			string msg = "OK";
@@ -1650,7 +1664,7 @@ int file_server() {
 		} else if(strcmp(received_vector[0].c_str(),"RECV_DUPICATE")==0) {
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
-			sdfs_file_set.insert(received_vector[1]); save_sdfs_file_list();
+			sdfs_file_set.insert(received_vector[1]);
 			get_file(received_vector[1], new_server_fd,false);
 		} else if(strcmp(received_vector[0].c_str(),"COLLECT_SDFS")==0) {
 			send_file_names(new_server_fd);
