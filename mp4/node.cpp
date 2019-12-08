@@ -21,6 +21,7 @@
 #include <ctime>
 #include <future>
 #include <dirent.h>
+#include <cstdio>
 #include "maple_juice.h"
 using namespace std;
 using namespace std::chrono;
@@ -1091,6 +1092,8 @@ int master() {
 					maple_machines_idxs.insert({next_mj_id, i});
 					next_mj_id++;
 
+					next_mj_id++;
+
 			    }
 					
 			        
@@ -1116,7 +1119,7 @@ int master() {
 			    output_file = received_info_vec[4];
 			    delete_intermediate = stoi(received_info_vec[5]);
 
-			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + " " + to_string(maple_machine_num);
+			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + " " + to_string(maple_machine_num) + " " + to_string(delete_intermediate);
 
 			    set<int>::iterator it;
 			    for(int i = 0; i < maple_machine_num; i++) {
@@ -1789,7 +1792,8 @@ int map_reduce() {
 			string juice_prefix = received_vector[2];
 			string output = received_vector[3];
 			int maple_task_num = stoi(received_vector[4]);
-			int current_id = stoi(received_vector[5]);
+			int delete_or_not = stoi(received_vector[5]);
+			int current_id = stoi(received_vector[6]);
 
 			vector<string> files = get_(juice_prefix + "_" + received_vector[5], current_id);
 
@@ -1798,6 +1802,41 @@ int map_reduce() {
 			put(DIR_TEMP + to_string(myinfo.id) + '/' + "juiceoutput_" + to_string(current_id) ,  "juiceoutput_" + to_string(current_id));
 			string tmp = "JUICE_FINISH " + to_string(current_id);
 			send_msg(tmp, master_server);
+
+			if(delete_or_not == 1) {
+				// remove the dir_tmp folder
+				string delete_command = std::string("rm -r ") + DIR_TEMP;
+				try {
+				    string dir = DIR_SDFS + to_string(myinfo.id);
+					string cmd = "mkdir "+ dir;
+					popen(cmd.c_str(), "r");
+				} catch (std::exception const &e) {
+
+				}
+
+
+				// remove the files in the folder dir_sdfs
+				DIR *dp;
+		    	struct dirent *dirp;
+		    	vector<string> files;
+		    	if((dp = opendir((DIR_SDFS + to_string(myinfo.id) + "/").c_str())) == NULL) {
+		      		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
+		      		return errno;
+		    	}
+		   		while ((dirp = readdir(dp)) != NULL) {
+		    		string name = dirp->d_name;
+		    		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
+		    		if(name.find(prefix) != std::string::npos || name.find("juiceoutput_") != std::string::npos) {
+		    			if (remove((DIR_SDFS + to_string(myinfo.id) + "/" + name).c_str()) != 0)
+							perror("File deletion failed");
+						else
+							cout << "File deleted successfully";
+					}
+		    	}
+		    	closedir(dp);
+
+
+			}
 			
 		}
 		string msg = "OK";
