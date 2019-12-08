@@ -1067,14 +1067,15 @@ int master() {
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
 			} else if(strcmp(received_info_vec[0].c_str(), "JUICE_SDFS") == 0) {
+				// std::string("JUICE_SDFS ") + para_exe + " "+ para_num + " "+ para_prefix + " "+ para_output + " "+ para_delete;
 				juice_finish_set.clear();
-				string exe = received_info_vec[3];
-			    // maple_machine_num = stoi(received_info_vec[4]);
-			    // string prefix = received_info_vec[5];
-			    output_file = received_info_vec[6];
-			    delete_intermediate = stoi(received_info_vec[7]);
+				string para_exe = received_info_vec[1];
+				string para_num = received_info_vec[2];
+				string para_prefix = received_info_vec[3];
+			    output_file = received_info_vec[4];
+			    delete_intermediate = stoi(received_info_vec[5]);
 
-			    juice_msg = "JUICE_EXE " + exe + " " + prefix + " " + output_file + to_string(maple_machine_num);
+			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + to_string(maple_machine_num);
 
 			    set<int>::iterator it;
 			    for(int i = 0; i < maple_machine_num; i++) {
@@ -1470,8 +1471,18 @@ int test(){
 			}
 
 			if(strcmp(ptr, "JUICE") == 0) {
+				ptr = strtok(NULL, delim);
+				string para_exe = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string para_num = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string para_prefix = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string para_output = (string) ptr;
+				ptr = strtok(NULL, delim);
+				string para_delete = (string) ptr;
 				string tmp = received_info;
-				string tmp2 = std::string("JUICE_SDFS ") + received_info;
+				string tmp2 = std::string("JUICE_SDFS ") + para_exe + " "+ para_num + " "+ para_prefix + " "+ para_output + " "+ para_delete;
 				send_msg(tmp2, master_server);
 				msg = "OK";
 			} 
@@ -1728,6 +1739,7 @@ int map_reduce() {
 			
 		} else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
 			string dir = DIR_SDFS + to_string(myinfo.id);
+ 			// "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + to_string(maple_machine_num);
 
 			string exeFile = received_vector[1];
 			string juice_prefix = received_vector[2];
