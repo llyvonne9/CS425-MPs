@@ -892,7 +892,15 @@ int master() {
 				if(!check_file_exists(file_name)) {
 					msg = "[MASTER GET_SDFS] The file does not exit.";
 				} else {
-					msg = to_string(*file_map[file_name].nodes.begin());
+
+					// msg = to_string(*file_map[file_name].nodes.begin());
+					set<int>::iterator it;
+					for(it = file_map[file_name].nodes.begin(); it!=file_map[file_name].nodes.end(); it++)  {
+						if(membership_list.find(*it) != membership_list.end()) {
+							msg = to_string(*it);
+							break;
+						}
+					}
 					// printf("[MASTER GET_SDFS] master to node. msg: %s\n", msg.c_str());
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
@@ -1588,86 +1596,6 @@ int file_server() {
 			send_file_names(new_server_fd);
 			cout<<"file names sent\n";
 		} 
-		// else if(strcmp(received_vector[0].c_str(),"MAPLE_EXE")==0) {
-		// 	string exeFile = received_vector[1];
-		// 	int maple_task_num = stoi(received_vector[2]);
-		// 	string maple_prefix = received_vector[3];
-		// 	string input = received_vector[4];
-		// 	int current_id = stoi(received_vector[5]);
-			
-		// 	string msg = "OK";
-		// 	send(new_server_fd, msg.c_str(), msg.length(), 0);
-		// 	close(new_server_fd);
-
-		// 	if(sdfs_file_set.find(input) == sdfs_file_set.end()) get(input, input);
-
-		// 	int line = 0;
-		// 	ifstream input_file;
-		// 	string dir = DIR_SDFS + to_string(myinfo.id);
-		// 	input_file.open(dir + "/" + input,ios::in); //open a file to perform read operation using file object
-		//    	if (input_file.is_open()){   //checking whether the file is open
-		//    		printf("file %s is open to maple\n", input.c_str());
-		//    		string dir = DIR_SDFS + to_string(myinfo.id);
-
-		//       	string tp;
-		//     	string ten_lines = "";
-		//     	while(getline(input_file, tp)){ //read data from file object and put it into string.
-		//       		if(line % 10 == 0 && (line / 10) % maple_task_num == current_id && line / 10 != 0) {
-		//       			maple(exeFile, ten_lines, maple_prefix, maple_task_num, current_id, dir);
-		//       			ten_lines = "";
-		//       		}
-		//         	if( (line / 10) % maple_task_num == current_id ) {
-		//          		ten_lines += tp;
-		//         	}
-		//         	line++;
-
-		//       	}
-
-		//       	//maple_output_targetmachineid_key_machineid
-
-		//     	//find all local files with the prefix maple_output_
-		// 		DIR *dp;
-		//     	struct dirent *dirp;
-		//     	vector<string> files;
-		//     	if((dp = opendir((dir + "/").c_str())) == NULL) {
-		//       		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
-		//       		return errno;
-		//     	}
-		//    		while ((dirp = readdir(dp)) != NULL) {
-		//     		string name = dirp->d_name;
-		//     		if(name.find(maple_prefix) != std::string::npos) {
-		// 				files.push_back(string(dirp->d_name));
-		// 			}
-		//     	}
-		//     	closedir(dp);
-
-		//     	//put all maple results into SDFS
-		//     	for(string file: files) {
-		//     		put(file, file);
-		//     	}
-		//     	string tmp = "MAPLE_FINISH " + to_string(current_id);
-		//     	send_msg(tmp, master_server);
-		//     	input_file.close(); //close the file object.
-		//    }
-			
-		// } else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
-		// 	string dir = DIR_SDFS + to_string(myinfo.id);
-
-		// 	string exeFile = received_vector[1];
-		// 	string juice_prefix = received_vector[2];
-		// 	string output = received_vector[3];
-		// 	int maple_task_num = stoi(received_vector[4]);
-		// 	int current_id = stoi(received_vector[5]);
-
-		// 	vector<string> files = get_(juice_prefix + "_" + received_vector[5]);
-
-		// 	juice(exeFile, files, output + "_inter_" + to_string(current_id), dir);
-
-		// 	put(output + "_inter_" + to_string(current_id), output + "_inter_" + to_string(current_id));
-		// 	string tmp = "JUICE_FINISH " + to_string(current_id);
-		// 	send_msg(tmp, master_server);
-			
-		// }
 
 		close(new_server_fd);
 	}
@@ -1787,7 +1715,7 @@ int map_reduce() {
 		    	string tmp = "MAPLE_FINISH " + to_string(current_id);
 		    	send_msg(tmp, master_server);
 		    	input_file.close(); //close the file object.
-		   }
+		   } 
 			
 		} else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
 			string dir = DIR_SDFS + to_string(myinfo.id);
