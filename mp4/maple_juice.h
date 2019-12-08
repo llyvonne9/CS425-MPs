@@ -26,26 +26,29 @@ vector<string> split (string s, string delimiter) {
     return res;
 }
 
-int maple(string exe, string contents, string prefix, int maple_task_num, int current_index, string dir) {
+set<string> maple(string exe, string contents, string prefix, int maple_task_num, int current_index, string dir) {
 	map<string, string> maple_map;
 	if(strcmp(exe.c_str(), "wordcount") == 0)
 		maple_map = task1::maple_helper(contents); 
 	else 
 		maple_map = task2::maple_helper(contents); 
 	
+	set<string> names;
 	for (std::map<string, string>::iterator it=maple_map.begin(); it!=maple_map.end(); ++it) {
 		string word = it->first;
 		string count = it -> second;
 		std::hash<std::string> str_hash;
 		int h = str_hash(word) % maple_task_num;
 		ofstream outfile;
-		outfile.open(dir + "/" + prefix + "_" + to_string(h) + "_" + word + "_" + to_string(current_index), std::ios_base::app);
+		string name = prefix + "_" + to_string(h) + "_" + word + "_" + to_string(current_index);
+		outfile.open(dir + name, std::ios_base::app);
 		outfile << count + "\n"; 
+		names.insert(name);
 		// printf("Result: %s %s\n", word.c_str(), count.c_str());
 		outfile.close();
 	}
 	
-	return 0;
+	return names;
 }
 
 int juice(string exe, vector<string> files, string output, string dir, string dir_maple) {

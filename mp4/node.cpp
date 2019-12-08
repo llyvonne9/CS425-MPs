@@ -201,14 +201,14 @@ int send_msg(string& msg, struct server_para server){
     struct sockaddr_in serv_addr; 	
 	init_socket_para(serv_addr, server.addr.c_str(), server.port);
     if (connect_socket(sock, serv_addr)<0){server.status = -1; return -1;}
-    cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
+    // cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
 
     send(sock, msg.c_str(), msg.length(), 0);
-    printf("send to %d a cmd %s \n ", server.id, msg.c_str());
+    // printf("send to %d a cmd %s \n ", server.id, msg.c_str());
 
 	valread = read(sock, recv_info, BUFFER_SIZE);
 	recv_info[valread] = '\0';
-	printf("\nThe info received from %d is: %s\n", server.id, recv_info); //neighbor leave (join might be optional)
+	// printf("\nThe info received from %d is: %s\n", server.id, recv_info); //neighbor leave (join might be optional)
 
 	msg = string(recv_info);
     close(sock);
@@ -230,7 +230,7 @@ int send_msg_map_reduce(string& msg, struct server_para server){
 
 	valread = read(sock, recv_info, BUFFER_SIZE);
 	recv_info[valread] = '\0';
-	printf("\nThe info received from %d is: %s\n", server.id, recv_info); //neighbor leave (join might be optional)
+	// printf("\nThe info received from %d is: %s\n", server.id, recv_info); //neighbor leave (join might be optional)
 
 	msg = string(recv_info);
     close(sock);
@@ -253,7 +253,7 @@ int add_file2node(string file_name, int id){
 		// cout<< "first time in file_map"<<"\n";
 		file_map.insert({fp.name, fp});
 	}
-	cout << "machine " << id << " " << file_name<<" "<<"add file to node. okk\n";
+	// cout << "machine " << id << " " << file_name<<" "<<"add file to node. okk\n";
 	files_per_node[id].insert(file_name);
 	return 0;
 }
@@ -368,7 +368,7 @@ int node_quit_proc(int id){
 			maple_machines_idxs.erase(id);
 			maple_machines_idxs.insert({next_mj_id, failed_maple_index});
 			maple_idxs_machines.find(failed_maple_index) -> second = next_mj_id;
-			string tmp = maple_msg + to_string(failed_maple_index);
+			string tmp = maple_msg + " " + to_string(failed_maple_index);
 			send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
 		}
 
@@ -381,7 +381,7 @@ int node_quit_proc(int id){
 			maple_machines_idxs.erase(id);
 			maple_machines_idxs.insert({next_mj_id, failed_maple_index});
 			maple_idxs_machines.find(failed_maple_index) -> second = next_mj_id;
-			string tmp = juice_msg + to_string(failed_maple_index);
+			string tmp = juice_msg + " " +  to_string(failed_maple_index);
 			send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
 		}
 	}
@@ -611,7 +611,7 @@ int read_sdfs_file_list() {
 int init_para(int argc, char const *argv[]){
 	introducer.port = PORT_INTRO;
 	if (argc >4){
-		load_file_list = (argv[4]=="1");
+		load_file_list = strcmp(argv[4], "1") == 0;
 	} else {load_file_list = true;}
 	if (argc >3){
 		master_id = stoi(argv[3]);
@@ -713,19 +713,23 @@ string get_filenames_by_prefix (string pre) {
 	for (map<string, file_para>::iterator it = file_map.begin(); it!=file_map.end(); ++it) {
     	string name = it->first;
     	//if(name.find(pre) ==  std::string::npos) {
-    	cout<<name.substr(0,pre.length()) << " " << "pre" << " "<< to_string(name.substr(0,pre.length()) == pre);
+    	// cout<<name.substr(0,pre.length()) << " " << "pre" << " "<< to_string(name.substr(0,pre.length()) == pre);
     	if(name.substr(0,pre.length()) == pre) {
-    		continue;
+    		// continue;
+    		if(msg.length() == 0) {msg += name;}
+    		else msg += " " + name;
+    		cout << name << "!!!\n";
     	}
-    	set<int>::iterator it2;
-		for(it2 = file_map[name].nodes.begin(); it2!=file_map[name].nodes.end(); it2++)  {
-			if(membership_list.find(*it2) != membership_list.end()) {
-				name += "_" + to_string(*it2);
-			}
-		}
+  //   	set<int>::iterator it2;
+		// for(it2 = file_map[name].nodes.begin(); it2!=file_map[name].nodes.end(); it2++)  {
+		// 	if(membership_list.find(*it2) != membership_list.end()) {
+		// 		name += "_" + to_string(*it2);
+		// 		break;
+		// 	}
+		// }
 
-    	if(msg.length() == 0) msg += name;
-    	else msg += " " + name;
+    	// if(msg.length() == 0) {msg += name;printf("get_filenames_by_prefix %s\n", name.c_str());}
+    	// else msg += " " + name;
     	
 
 	}
@@ -749,7 +753,7 @@ int send_file(string file_name, int sock){
 			total_len += n_sent;
 			bzero(buffer, BUFFER_SIZE);
 		}
-		printf("Transfer Successfully. Total bytes: %d\n\n", total_len);
+		// printf("Transfer Successfully. Total bytes: %d\n\n", total_len);
 	}
 	fclose(fp);
 	return 0;
@@ -773,7 +777,7 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 	        bzero(buffer, BUFFER_SIZE);
 	        total_len += length;
 	    }
-		printf("%d bytes received. Transfer Successfully. \n\n", total_len);
+		// printf("%d bytes received. Transfer Successfully. \n\n", total_len);
 	}
 	fclose(fp);
 
@@ -784,14 +788,15 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 //machine get file sdfs_filename from master and store as local_filename
 int get(string sdfs_filename, string local_filename) {
 	// to master
-	printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
+	// printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
 	string msg = "GET_SDFS "+ sdfs_filename;
 	send_msg(msg, master_server);
-	int id = stoi(msg); 
-	if (id == -1){
+	if (msg.length() == 0){
 		printf("Master server tells me no such file.");
 		return 1;
 	}
+	int id = stoi(msg); 
+	
 
 	//to node
 
@@ -940,7 +945,8 @@ int master() {
 				string msg = "";
 
 				if(!check_file_exists(file_name)) {
-					msg = "[MASTER GET_SDFS] The file does not exit.";
+					msg = "";
+					printf("[MASTER GET_SDFS] The file does not exit.\n");
 				} else {
 
 					// msg = to_string(*file_map[file_name].nodes.begin());
@@ -1101,8 +1107,6 @@ int master() {
 					maple_machines_idxs.insert({next_mj_id, i});
 					next_mj_id++;
 
-					next_mj_id++;
-
 			    }
 					
 			        
@@ -1215,7 +1219,7 @@ static std::string getAnswer()
 int put(string local_file, string target_file) {
 	// to master
 	string msg = "PUT_SDFS "+target_file;
-	printf("[FILE SERVER] put %s to SDFS as %s\n", local_file.c_str(), target_file.c_str());
+	// printf("[FILE SERVER] put %s to SDFS as %s\n", local_file.c_str(), target_file.c_str());
 
 	int valread; 
 	int sock_confim;
@@ -1741,6 +1745,7 @@ int map_reduce() {
 			int line = 0;
 			ifstream input_file;
 			input_file.open(dir + input,ios::in); //open a file to perform read operation using file object
+			set<string> files;
 			
 		   	if (input_file.is_open()){   //checking whether the file is open
 		   		printf("file %s is open to maple\n", input.c_str());
@@ -1749,7 +1754,10 @@ int map_reduce() {
 		    	string ten_lines = "";
 		    	while(getline(input_file, tp)){ //read data from file object and put it into string.
 		      		if(line % 10 == 0 && (line / 10) % maple_task_num == current_id && line / 10 != 0) {
-		      			maple(exeFile, ten_lines, maple_prefix, maple_task_num, current_id, dir);
+		      			set<string> part_files = maple(exeFile, ten_lines, maple_prefix, maple_task_num, current_id, dir);
+		      			set<string> tmp;
+		      			std::set_union(part_files.begin(), part_files.end(), files.begin(), files.end(), std::inserter(tmp, tmp.begin()));
+		      			files = tmp;
 		      			ten_lines = "";
 		      		}
 		        	if( (line / 10) % maple_task_num == current_id ) {
@@ -1762,22 +1770,22 @@ int map_reduce() {
 		      	//maple_output_targetmachineid_key_machineid
 
 		    	//find all local files with the prefix maple_output_
-				DIR *dp;
-		    	struct dirent *dirp;
-		    	vector<string> files;
-		    	if((dp = opendir((dir + "/").c_str())) == NULL) {
-		      		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
-		      		return errno;
-		    	}
-		   		while ((dirp = readdir(dp)) != NULL) {
-		    		string name = dirp->d_name;
-		    		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
-		    		if(name.find(maple_prefix) != std::string::npos) {
-		    			// printf("%s\n", dirp->d_name);
-						files.push_back(string(dirp->d_name));
-					}
-		    	}
-		    	closedir(dp);
+				// DIR *dp;
+		  //   	struct dirent *dirp;
+		    	
+		  //   	if((dp = opendir((dir).c_str())) == NULL) {
+		  //     		cout << "Error(" << errno << ") opening " << (dir) << endl;
+		  //     		return errno;
+		  //   	}
+		  //  		while ((dirp = readdir(dp)) != NULL) {
+		  //   		string name = dirp->d_name;
+		  //   		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
+		  //   		if(name.find(maple_prefix) != std::string::npos) {
+		  //   			// printf("%s\n", dirp->d_name);
+				// 		files.push_back(string(dirp->d_name));
+				// 	}
+		  //   	}
+		  //   	closedir(dp);
 
 
 		    	printf("MAPLE FINISHED YEAH.\n");
@@ -1785,7 +1793,7 @@ int map_reduce() {
 		    	//put all maple results into SDFS
 		    	for(string file: files) {
 		    		
-		    		put(dir + "/" + file, file);
+		    		put(dir + file, file);
 		    	}
 
 		    	printf("MAPLE PUT FINISHED YEAH.\n");
@@ -1821,7 +1829,6 @@ int map_reduce() {
 				// remove the dir_tmp folder
 				string delete_command = std::string("rm -r ") + DIR_TEMP;
 				try {
-				    string dir = DIR_SDFS + to_string(myinfo.id);
 					string cmd = "mkdir "+ dir;
 					popen(cmd.c_str(), "r");
 				} catch (std::exception const &e) {
