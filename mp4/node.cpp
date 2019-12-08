@@ -595,14 +595,14 @@ int init_para(int argc, char const *argv[]){
 	    string dir = DIR_SDFS + to_string(myinfo.id);
 		string cmd = "mkdir "+ dir;
 		popen(cmd.c_str(), "r");
-		try{
-			dir = DIR_TEMP + to_string(myinfo.id);
-			string cmd = "mkdir "+ dir;
-			popen(cmd.c_str(), "r");
-		} catch (std::exception const &e) {}
 	} catch (std::exception const &e) {
 
 	}
+	try{
+		string dir = DIR_TEMP + to_string(myinfo.id);
+		string cmd = "mkdir "+ dir;
+		popen(cmd.c_str(), "r");
+	} catch (std::exception const &e) {}
 	return 0;
 }
 
@@ -1021,6 +1021,8 @@ int master() {
 				close(new_server_fd);
 			} else if(strcmp(received_info_vec[0].c_str(), "MAPLE_SDFS") == 0) {
 				printf("[MASTER] MAPLE_SDFS\n");
+				maple_finish_set.clear();
+
 				msg = "OK";
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
@@ -1061,8 +1063,11 @@ int master() {
 					printf("[MASTER] Ready to reduce.");
 
 				}
+				string msg = "OK, good job!";
+				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
 			} else if(strcmp(received_info_vec[0].c_str(), "JUICE_SDFS") == 0) {
+				juice_finish_set.clear();
 				string exe = received_info_vec[3];
 			    // maple_machine_num = stoi(received_info_vec[4]);
 			    // string prefix = received_info_vec[5];
@@ -1630,6 +1635,7 @@ int map_reduce() {
 	
 
 	while(true){
+		sleep(heartbeat_time/1000);
 		int new_server_fd;
 		char received_info[BUFFER_SIZE] = {0}; 
 		if(listen(server_fd, QUEUE_SIZE) < 0) {
@@ -1652,17 +1658,20 @@ int map_reduce() {
 			string maple_prefix = received_vector[3];
 			string input = received_vector[4];
 			int current_id = stoi(received_vector[5]);
+			string dir = DIR_TEMP + to_string(myinfo.id) +'/';
 			
-			string msg = "OK";
+			string msg = "Maybe OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			close(new_server_fd);
 
-			if(sdfs_file_set.find(input) == sdfs_file_set.end()) get(input, input);
+			printf("try get file to local for maple\n");
+			//if(sdfs_file_set.find(input) == sdfs_file_set.end()) 
+				get(input, dir+input);
+			printf("finished get\n");
 
 			int line = 0;
 			ifstream input_file;
-			string dir = DIR_TEMP + to_string(myinfo.id);
-			input_file.open(dir + "/" + input,ios::in); //open a file to perform read operation using file object
+			input_file.open(dir + input,ios::in); //open a file to perform read operation using file object
 			
 		   	if (input_file.is_open()){   //checking whether the file is open
 		   		printf("file %s is open to maple\n", input.c_str());
@@ -1728,9 +1737,9 @@ int map_reduce() {
 
 			vector<string> files = get_(juice_prefix + "_" + received_vector[5], current_id);
 
-			juice(exeFile, files, output + "_inter_" + to_string(current_id), dir, DIR_TEMP);
+			juice(exeFile, files, output + "_inter_" + to_string(current_id), dir, DIR_TEMP + to_string(myinfo.id));
 
-			put(DIR_TEMP + '/' + output + "_inter_" + to_string(current_id) , 
+			put(DIR_TEMP + to_string(myinfo.id) + '/' + output + "_inter_" + to_string(current_id) , 
 				output + "_inter_" + to_string(current_id));
 			string tmp = "JUICE_FINISH " + to_string(current_id);
 			send_msg(tmp, master_server);
