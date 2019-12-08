@@ -694,7 +694,7 @@ int send_file(string file_name, int sock){
 			total_len += n_sent;
 			bzero(buffer, BUFFER_SIZE);
 		}
-		printf("Transfer Successfully. Total bytes: %d\n", total_len);
+		printf("Transfer Successfully. Total bytes: %d\n\n", total_len);
 	}
 	fclose(fp);
 	return 0;
@@ -718,7 +718,7 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 	        bzero(buffer, BUFFER_SIZE);
 	        total_len += length;
 	    }
-		printf("%d bytes received. Transfer Successfully. \n", total_len);
+		printf("%d bytes received. Transfer Successfully. \n\n", total_len);
 	}
 	fclose(fp);
 
@@ -729,14 +729,13 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 //machine get file sdfs_filename from master and store as local_filename
 int get(string sdfs_filename, string local_filename) {
 	// to master
+	printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
 	string msg = "GET_SDFS "+ sdfs_filename;
 	send_msg(msg, master_server);
 	int id = stoi(msg); 
 	if (id == -1){
 		printf("Master server tells me no such file.");
 		return 1;
-	} else {
-		printf("Ready to get from node %d\n", id);
 	}
 
 	//to node
@@ -752,7 +751,7 @@ int get(string sdfs_filename, string local_filename) {
     if (connect_socket(sock, serv_addr)<0 || membership_list.find(id) == membership_list.end()){return -1;}
 
     send(sock, msg.c_str(), msg.length(), 0);
-    printf("cmd sent %s \n ", msg.c_str());
+    // printf("cmd sent %s \n ", msg.c_str());
 
     get_file(local_filename, sock, true);
 
@@ -884,10 +883,10 @@ int master() {
 				string msg = "";
 
 				if(!check_file_exists(file_name)) {
-					msg = "[GET RESULT] The file does not exit.";
+					msg = "[MASTER GET_SDFS] The file does not exit.";
 				} else {
 					msg = to_string(*file_map[file_name].nodes.begin());
-					printf("[GET] master to node. msg: %s\n", msg.c_str());
+					// printf("[MASTER GET_SDFS] master to node. msg: %s\n", msg.c_str());
 				}
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
@@ -912,14 +911,14 @@ int master() {
 						next_id++;
 						if(next_id != 10) next_id = next_id % 10;
 					}
-					printf("[PUT] Master to node %s\n", msg.c_str());
+					// printf("[Master] Put to node %s\n", msg.c_str());
 					
 					send(new_server_fd, msg.c_str(), msg.length(), 0);
 					close(new_server_fd);
 				}  else {
 					//confirmation about update
 					//update
-					printf("File exists. \n");
+					printf("[MASTER PUT] File exists. \n");
 					long cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					long confirmed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					string update_confirm_msg = "LESS1MIN";
@@ -960,17 +959,17 @@ int master() {
 							if(replicas.length() == 0) replicas += to_string(*it);
 							else replicas += " " + to_string(*it);
 						}
-						printf("[Update] Master sent msg: %s\n", replicas.c_str());
+						printf("[MASTER Update] Master sent msg: %s\n", replicas.c_str());
 						msg = replicas;
 						
 					} else {
 						
-						printf("[Update] master denied with msg: %s\n", update_confirm_msg.c_str());
+						printf("[MASTER Update] master denied with msg: %s\n", update_confirm_msg.c_str());
 						msg = "NO";
 					}
 
 					send(new_server_fd, msg.c_str(), msg.length(), 0);
-					printf("Master sent %s\n", msg.c_str());
+					// printf("Master sent %s\n", msg.c_str());
 					close(new_server_fd);
 					
 				}
@@ -1006,7 +1005,7 @@ int master() {
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
 			} else if(strcmp(received_info_vec[0].c_str(), "MAPLE_SDFS") == 0) {
-				printf("MAPLE_SDFS\n");
+				printf("[MASTER] MAPLE_SDFS\n");
 				msg = "OK";
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
@@ -1020,14 +1019,14 @@ int master() {
 			    maple_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			    is_mapling = true;
 			    maple_msg = "MAPLE_EXE " + exe + " " + to_string(maple_machine_num) + " " + prefix + " " + input_file ;
-			    printf("maple_msg : %s\n", maple_msg.c_str());
+			    // printf("maple_msg : %s\n", maple_msg.c_str());
 			    for(int i = 0; i < maple_machine_num; i++) {
 			        while(membership_list.find(next_mj_id) == membership_list.end()) {
 						next_mj_id++;
 						if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
 					}
 					string tmp = maple_msg + " " + to_string(i);
-					printf("Master to machine %d to maple msg: %s\n", next_mj_id, tmp.c_str());
+					// printf("Master to machine %d to maple msg: %s\n", next_mj_id, tmp.c_str());
 					send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
 					next_mj_id++;
 
@@ -1044,7 +1043,7 @@ int master() {
 				if(maple_finish_set.size() >= maple_machine_num) {
 					ready_to_juice = true;
 					is_mapling = false;
-					printf("Ready to reduce.");
+					printf("[MASTER] Ready to reduce.");
 
 				}
 				close(new_server_fd);
@@ -1142,7 +1141,7 @@ static std::string getAnswer()
 int put(string local_file, string target_file) {
 	// to master
 	string msg = "PUT_SDFS "+target_file;
-	printf("Send put to master %s\n", msg.c_str());
+	printf("[FILE SERVER] put %s to SDFS as %s\n", local_file.c_str(), target_file.c_str());
 
 	int valread; 
 	int sock_confim;
@@ -1155,7 +1154,7 @@ int put(string local_file, string target_file) {
     if (connect_socket(sock_confim, serv_addr)<0){master_server.status = -1; return -1;}
 
     send(sock_confim, msg.c_str(), msg.length(), 0);
-    printf("cmd sent %s \n ", msg.c_str());
+    // printf("cmd sent %s \n ", msg.c_str());
 
 	valread = read(sock_confim, recv_info, BUFFER_SIZE);
 	recv_info[valread] = '\0';
@@ -1207,7 +1206,7 @@ int put(string local_file, string target_file) {
 			read(sock_confim, recv_info, BUFFER_SIZE);
 			msg = "";
 			msg = recv_info;
-			printf("msg in else %s\n", msg.c_str());
+			printf("[FILE SERVER] User confirm action %s\n", msg.c_str());
 			
 		}
 	} 
@@ -1234,7 +1233,7 @@ int put(string local_file, string target_file) {
 	    }
 
 	    send(sock, msg.c_str(), msg.length(), 0);
-	    printf("cmd sent %s \n ", msg.c_str());
+	    // printf("cmd sent %s \n ", msg.c_str());
 
 		char buffer[BUFFER_SIZE] = {0};
 		// printf("(PUT) send file\n"); 
@@ -1760,7 +1759,7 @@ int map_reduce() {
 		   		while ((dirp = readdir(dp)) != NULL) {
 		    		string name = dirp->d_name;
 		    		if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
-		    			printf("%s\n", dirp->d_name);
+		    			// printf("%s\n", dirp->d_name);
 						files.push_back(string(dirp->d_name));
 					}
 		    	}
