@@ -43,7 +43,7 @@ using namespace std::chrono;
 #define SDFS_FILE_LIST "sdfs_file_list"
 
 #define DEBUG_J true
-#define DEBUG_P true
+#define DEBUG_P false
 
 //Server parameters to assign and to print
 struct server_para {
@@ -583,7 +583,7 @@ int monitor(){ //UDP monitor heartbeat
 
 int save_sdfs_file_list() {
 	ofstream myfile;
-	myfile.open (SDFS_FILE_LIST);
+	myfile.open (SDFS_FILE_LIST + to_string(myinfo.id));
 	set<string>::iterator it;
 	for(it = sdfs_file_set.begin(); it!=sdfs_file_set.end(); it++)  {
 		//printf("%s\n", (*it).c_str());
@@ -596,7 +596,7 @@ int save_sdfs_file_list() {
 int read_sdfs_file_list() {
 	ifstream myfile;
 	try{
-		myfile.open (SDFS_FILE_LIST);
+		myfile.open (SDFS_FILE_LIST + to_string(myinfo.id));
 	} catch (std::exception const &e) {
 		cout<<"Maybe not SDFS_FILE_LIST file yet.";
 	}
@@ -726,7 +726,6 @@ string get_filenames_by_prefix (string pre) {
     		// continue;
     		if(msg.length() == 0) {msg += name;}
     		else msg += " " + name;
-    		cout << name << "!!!\n";
     	}
   //   	set<int>::iterator it2;
 		// for(it2 = file_map[name].nodes.begin(); it2!=file_map[name].nodes.end(); it2++)  {
@@ -816,7 +815,7 @@ int get_from(string sdfs_filename, string local_filename, int id){
 //machine get file sdfs_filename from master and store as local_filename
 int get(string sdfs_filename, string local_filename) {
 	// to master
-	if(!DEBUG_P) printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
+	if(DEBUG_P) printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
 	string msg = "GET_SDFS "+ sdfs_filename;
 	send_msg(msg, master_server);
 	if (msg.length() == 0){
@@ -876,31 +875,33 @@ int combine_results(string output) {
 	printf("[Master] combine starts.\n");
 	ofstream outfile;
   	outfile.open (output, ios::app);
+  	vector<string> v;
 	for(int i = 0; i < maple_machines_idxs.size(); i++) {
 		string tmp_file = DIR_TEMP+to_string(myinfo.id)+"/juiceoutput_" + to_string(i);
 		//get("juiceoutput_" + to_string(i), tmp_file); 
 		int id = -1;
 		set<int>::iterator it;
-		for(it = file_map["/juiceoutput_" + to_string(i)].nodes.begin(); it!=file_map["/juiceoutput_" + to_string(i)].nodes.end(); it++)  {
+		for(it = file_map["juiceoutput_" + to_string(i)].nodes.begin(); it!=file_map["juiceoutput_" + to_string(i)].nodes.end(); it++)  {
 			if(membership_list.find(*it) != membership_list.end()) {
 				id = *it;
 				break;
 			}
 		}
 		get_from("juiceoutput_" + to_string(i), tmp_file, id); 
-
-		cout<< "Got files to combine.\n";
 		
 		string line;
 		ifstream intermediate_output (tmp_file);
 		if (intermediate_output.is_open()) {
 		    while ( getline (intermediate_output,line) ) {
-		    	outfile << line;
-		    	printf("%s !!!\n", line.c_str());
+		    	v.push_back(line);
+		    	//outfile << line << "\n";
 		    }
-		    
 		}
 		intermediate_output.close();
+	}
+	sort(v.begin(), v.end());
+	for (auto x: v){
+		outfile << x << "\n";
 	}
 	outfile.close();
 	printf("[Master] combine ends.\n");
@@ -975,7 +976,7 @@ int master() {
 				exit(1);
 			}
 			read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-			printf("[MASTER] The order received is: %s\n", received_info);
+			if(DEBUG_P) printf("[MASTER] The order received is: %s\n", received_info);
 			string received_str = received_info;
 			vector<string> received_info_vec = split(received_str, " ");
 			string msg = "";
@@ -1370,7 +1371,7 @@ int put(string local_file, string target_file) {
 			read(sock_confim, recv_info, BUFFER_SIZE);
 			msg = "";
 			msg = recv_info;
-			if(!DEBUG_P) printf("[FILE SERVER] User confirm action %s\n", msg.c_str());
+			if(DEBUG_P) printf("[FILE SERVER] User confirm action %s\n", msg.c_str());
 			
 		}
 	} 
@@ -1729,7 +1730,7 @@ int file_server() {
 		}
 		//read the request
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-		if(!DEBUG_P) printf("[FILE SERVER]The order received is: %s\n", received_info);
+		if(DEBUG_P) printf("[FILE SERVER]The order received is: %s\n", received_info);
 		vector<string> received_vector = split(received_info, " ");
 		string file_name = (received_vector.size()>1)? received_vector[1]: "WHATSUP";
 
@@ -1804,8 +1805,6 @@ int map_reduce() {
 		exit(1);
 	}
 
-	
-
 	while(true){
 		sleep(heartbeat_time/1000);
 		int new_server_fd;
@@ -1831,6 +1830,13 @@ int map_reduce() {
 			string input = received_vector[4];
 			int current_id = stoi(received_vector[5]);
 			string dir = DIR_TEMP + to_string(myinfo.id) +'/';
+
+
+			//printf("Start to delete mapple_ files. \n");
+			//try {
+			//	string cmd = std::string("rm ") + dir + "mapleoutput_*";
+			//	popen(cmd.c_str(), "r");
+			//} catch (std::exception const &e) {}
 			
 			string msg = "Maybe OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
@@ -1860,7 +1866,7 @@ int map_reduce() {
 		      			ten_lines = "";
 		      		}
 		        	if( (line / 10) % maple_task_num == current_id ) {
-		         		ten_lines += tp;
+		         		ten_lines += tp + " ";
 		        	}
 		        	line++;
 
@@ -1904,10 +1910,17 @@ int map_reduce() {
 			
 		} else if(strcmp(received_vector[0].c_str(),"JUICE_EXE")==0) {
 			string dir = DIR_SDFS + to_string(myinfo.id);
+			string dir_tmp = DIR_TEMP + to_string(myinfo.id);
 			string msg = "Maybe OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
 			close(new_server_fd);
  			// "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + to_string(maple_machine_num);
+
+			//printf("Start to delete juiceouput_ files. \n");
+			//try {
+			//	string cmd = std::string("rm ") + dir + "/" + "juiceoutput_*";
+			//	popen(cmd.c_str(), "r");
+			//} catch (std::exception const &e) {}
 
 			string exeFile = received_vector[1];
 			string juice_prefix = received_vector[2];
@@ -1916,9 +1929,9 @@ int map_reduce() {
 			int delete_or_not = stoi(received_vector[5]);
 			int current_id = stoi(received_vector[6]);
 
-			vector<string> files = get_(juice_prefix + "_" + received_vector[5], current_id);
+			vector<string> files = get_(juice_prefix + "_" + to_string(current_id), current_id);
 
-			juice(exeFile, files, "juiceoutput_" + to_string(current_id), dir, DIR_TEMP + to_string(myinfo.id));
+			juice(exeFile, files, "juiceoutput_" + to_string(current_id), dir_tmp, dir_tmp);
 
 			put(DIR_TEMP + to_string(myinfo.id) + '/' + "juiceoutput_" + to_string(current_id) ,  "juiceoutput_" + to_string(current_id));
 			string tmp = "JUICE_FINISH " + to_string(current_id);
@@ -1929,9 +1942,8 @@ int map_reduce() {
 			if(delete_or_not == 1) {
 				// remove the dir_tmp folder
 				printf("Start to delete. \n");
-				string delete_command = std::string("rm -r ") + DIR_TEMP;
 				try {
-					string cmd = "mkdir "+ dir;
+					string cmd = std::string("rm -r ") + DIR_TEMP + to_string(myinfo.id);
 					popen(cmd.c_str(), "r");
 				} catch (std::exception const &e) {
 
