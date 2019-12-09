@@ -21,18 +21,24 @@ vector<string> split (string s, string delimiter) {
 map<string, string> maple_helper(string contents) {
 	map<string, string> count; 
 	vector<string> words = split(contents, " ");
-	for(int i = 0; i < words.size(); i += 2) {
+	for(int i = 0; i < words.size() - 1; i += 2) {
+		if(words[i+1].empty() || words[i].empty() || words[i+1] == "" || words[i] == "") continue;
+		// printf("maple_helper %s__%s\n", words[i].c_str(), words[i + 1].c_str());
 		string type = words[i];
 		float height = stof(words[i + 1]);
 
 		if(height <= 770) continue;
 		if(count.find(type) != count.end()) {
 			count.find(type) -> second = to_string(stoi(count.find(type) -> second) + 1);
+			// printf("b maple_helper %s__%s\n", words[i].c_str(), words[i + 1].c_str());
 		} else {
 			count.insert({type, to_string(1)});
+			// printf("c maple_helper %s__%s\n", words[i].c_str(), words[i + 1].c_str());
 		}
 
 	}
+
+	// printf("building maple finish \n");
 	
 	return count;
 }
