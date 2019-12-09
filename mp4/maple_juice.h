@@ -7,7 +7,7 @@ namespace task1{
 }
 // 第二个命名空间
 namespace task2{
-   #include "wordcount.h"
+   #include "buildingelevation.h"
 }
 
 
@@ -52,7 +52,8 @@ set<string> maple(string exe, string contents, string prefix, int maple_task_num
 }
 
 int juice(string exe, vector<string> files, string output, string dir, string dir_maple) {
-	map<string, string> juice_map;
+	//map<string, string> juice_map;
+	map<string, int> juice_map;
 	if(strcmp(exe.c_str(), "wordcount") == 0)
 		juice_map = task1::juice_helper(files, dir); 
 	else 
@@ -60,8 +61,9 @@ int juice(string exe, vector<string> files, string output, string dir, string di
 	ofstream outfile;
 	cout << dir_maple + "/" + output <<"\n";
 	outfile.open(dir_maple + "/" + output, std::ios_base::app);
-	for (std::map<string, string>::iterator it=juice_map.begin(); it!=juice_map.end(); ++it) {
-		outfile << (it -> first) + " " + (it -> second) + "\n"; 
+	//for (std::map<string, string>::iterator it=juice_map.begin(); it!=juice_map.end(); ++it) {
+	for (std::map<string, int>::iterator it=juice_map.begin(); it!=juice_map.end(); ++it) {
+		outfile << (it -> first) + " " + to_string(it -> second) + "\n"; 
 	}
 	
 	outfile.close();
