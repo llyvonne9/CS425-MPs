@@ -886,7 +886,9 @@ int combine_results(string output) {
 				break;
 			}
 		}
-		get_from("juiceoutput_" + to_string(i), tmp_file, id - 1);
+		get_from("juiceoutput_" + to_string(i), tmp_file, id); 
+
+		cout<< "Got files to combine.\n";
 		
 		string line;
 		ifstream intermediate_output (tmp_file);
@@ -1206,6 +1208,8 @@ int master() {
 						// send_msg_map_reduce(tmp, serverlist[juice_id - 1]);
 				  //   }
 			   //  } else {
+			   		maple_idxs_machines.clear();
+			   		maple_machines_idxs.clear();
 			    	for(int i = 0; i < stoi(para_num); i++) {
 				        while(membership_list.find(next_mj_id) == membership_list.end()) {
 							next_mj_id++;
@@ -1234,8 +1238,6 @@ int master() {
 					printf("Before Combine\n");
 					combine_results(output_file);
 
-					cout << "JOICE finished";
-
 					is_juicing = false;
 					if(delete_intermediate == 1) {
 						//delete maple output
@@ -1250,11 +1252,9 @@ int master() {
 						for(int i = 0; i < files.size(); i++) 
 							delete_file(files[i]);
 					}
-
+					printf("[MASTER] Juice Finish All Finish YEAH.\n");
 				}
 				close(new_server_fd);
-				printf("[MASTER] Juice Finish All Finish YEAH.\n");
-
 			}
 			
 		}
