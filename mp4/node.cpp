@@ -870,6 +870,7 @@ vector<string> get_(string sdfs_filename_prefix, int current_index) {
 }
 
 int combine_results(string output) {
+	printf("[Master] combine starts.\n");
 	ofstream outfile;
   	outfile.open (output, ios::app);
 	for(int i = 0; i < maple_machine_num; i++) {
@@ -881,12 +882,14 @@ int combine_results(string output) {
 		if (intermediate_output.is_open()) {
 		    while ( getline (intermediate_output,line) ) {
 		    	outfile << line;
+		    	printf("%s !!!\n", line.c_str());
 		    }
 		    
 		}
 		intermediate_output.close();
 	}
 	outfile.close();
+	printf("[Master] combine ends.\n");
 	return 0;
 }
 
@@ -915,6 +918,7 @@ int send_msg_to_sock(string &msg, int sock){
 		//printf("n_sent=%d\n", n_sent);
 	}
 	//close(new_server_fd);
+	return 0;
 }
 
 int master() {
@@ -1180,12 +1184,31 @@ int master() {
 
 			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + " " + to_string(maple_machine_num) + " " + to_string(delete_intermediate);
 
-			    set<int>::iterator it;
-			    for(int i = 0; i < maple_machine_num; i++) {
-			        int juice_id = maple_idxs_machines.find(i) ->second;
-			        string tmp = juice_msg + " " + to_string(i);
-					send_msg_map_reduce(tmp, serverlist[juice_id - 1]);
+			    if(maple_idxs_machines.size() != 0) {
+			    	set<int>::iterator it;
+				    for(int i = 0; i < maple_machine_num; i++) {
+				        int juice_id = maple_idxs_machines.find(i) ->second;
+				        string tmp = juice_msg + " " + to_string(i);
+						send_msg_map_reduce(tmp, serverlist[juice_id - 1]);
+				    }
+			    } else {
+			    	for(int i = 0; i < maple_machine_num; i++) {
+				        while(membership_list.find(next_mj_id) == membership_list.end()) {
+							next_mj_id++;
+							if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
+						}
+						string tmp = maple_msg + " " + to_string(i);
+						// printf("Master to machine %d to maple msg: %s\n", next_mj_id, tmp.c_str());
+						send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
+
+						maple_idxs_machines.insert({i, next_mj_id});
+						maple_machines_idxs.insert({next_mj_id, i});
+						next_mj_id++;
+
+				    }
+
 			    }
+			    
 			    close(new_server_fd);
 					
 			        
@@ -1884,8 +1907,11 @@ int map_reduce() {
 			string tmp = "JUICE_FINISH " + to_string(current_id);
 			send_msg(tmp, master_server);
 
+			printf("JUICE FINISHED YEAH!\n");
+
 			if(delete_or_not == 1) {
 				// remove the dir_tmp folder
+				printf("Start to delete. \n");
 				string delete_command = std::string("rm -r ") + DIR_TEMP;
 				try {
 					string cmd = "mkdir "+ dir;

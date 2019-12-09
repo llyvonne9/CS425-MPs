@@ -35,10 +35,11 @@ map<string, string> maple_helper(string contents) {
 }
 
 map<string, string> juice_helper(vector<string> files, string dir) {
-	int count = 0;
+	
 	map<string, string> counts; 
 	cout << dir + "/" + files[0] << "\n";
 	for(int i = 0; i < files.size(); i++) {
+		int count = 0;
 		ifstream fin(dir + "/" + files[i]); 
 	    const int LINE_LENGTH = 100; 
 	    char str[LINE_LENGTH];  
