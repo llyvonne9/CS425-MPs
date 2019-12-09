@@ -77,7 +77,7 @@ struct server_para myinfo;
 struct server_para introducer;
 struct server_para master_server;
 struct server_para *neighbors;
-int wait_time = 500; //ms can use 80 for emulating msg loss
+int wait_time = 2000; //500; //ms can use 80 for emulating msg loss
 int heartbeat_time = wait_time/8;
 int heartbeat_when_join = 0;
 set<int> membership_list;
@@ -792,22 +792,9 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 
 }
 
-//machine get file sdfs_filename from master and store as local_filename
-int get(string sdfs_filename, string local_filename) {
-	// to master
-	printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
-	string msg = "GET_SDFS "+ sdfs_filename;
-	send_msg(msg, master_server);
-	if (msg.length() == 0){
-		printf("Master server tells me no such file.");
-		return -1;
-	}
-	int id = stoi(msg); 
-	
+int get_from(string sdfs_filename, string local_filename, int id){
 
-	//to node
-
-	msg = "GET " + sdfs_filename;
+	string msg = "GET " + sdfs_filename;
 
 	int valread; 
 	int sock;
@@ -824,7 +811,21 @@ int get(string sdfs_filename, string local_filename) {
 
     close(sock);
     return 0;
-
+}
+//machine get file sdfs_filename from master and store as local_filename
+int get(string sdfs_filename, string local_filename) {
+	// to master
+	printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
+	string msg = "GET_SDFS "+ sdfs_filename;
+	send_msg(msg, master_server);
+	if (msg.length() == 0){
+		printf("Master server tells me no such file.");
+		return -1;
+	}
+	int id = stoi(msg); 
+	
+	//to node
+	get_from(sdfs_filename, local_filename, id);
 }
 
 //get files with the name *_
@@ -873,9 +874,10 @@ int combine_results(string output) {
 	printf("[Master] combine starts.\n");
 	ofstream outfile;
   	outfile.open (output, ios::app);
-	for(int i = 0; i < maple_machine_num; i++) {
+	for(int i = 0; i < maple_machines_idxs.size(); i++) {
 		string tmp_file = DIR_TEMP+to_string(myinfo.id)+"/juiceoutput_" + to_string(i);
-		get("juiceoutput_" + to_string(i), tmp_file); 
+		//get("juiceoutput_" + to_string(i), tmp_file); 
+		get_from("juiceoutput_" + to_string(i), tmp_file, maple_idxs_machines[i]);
 		
 		string line;
 		ifstream intermediate_output (tmp_file);
@@ -1219,7 +1221,7 @@ int master() {
 				int j_id = stoi(received_info_vec[1]);
 				juice_finish_set.insert(j_id);
 
-				if(juice_finish_set.size() >= maple_machine_num) {
+				if(juice_finish_set.size() >= maple_machines_idxs.size()) {
 					combine_results(output_file);
 
 					cout << "JOICE finished";
