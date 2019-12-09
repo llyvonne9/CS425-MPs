@@ -21,14 +21,17 @@ vector<string> split (string s, string delimiter) {
 map<string, string> maple_helper(string contents) {
 	map<string, string> count; 
 	vector<string> words = split(contents, " ");
-	for(int i = 0; i < words.size(); i++) {
-		string word = words[i];
-		if(word.length() == 0) continue;
-		if(count.find(word) != count.end()) {
-			count.find(word) -> second = to_string(stoi(count.find(word) -> second) + 1);
+	for(int i = 0; i < words.size(); i += 2) {
+		string type = words[i];
+		float height = stof(words[i + 1]);
+
+		if(height < 770) continue;
+		if(count.find(type) != count.end()) {
+			count.find(type) -> second = to_string(stoi(count.find(type) -> second) + 1);
 		} else {
-			count.insert({word, to_string(1)});
+			count.insert({type, to_string(1)});
 		}
+
 	}
 	
 	return count;
