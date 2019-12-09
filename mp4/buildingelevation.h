@@ -1,0 +1,65 @@
+#include <iostream>
+#include <string>
+using namespace std;
+
+
+vector<string> split (string s, string delimiter) {
+    size_t pos_start = 0, pos_end, delim_len = delimiter.length();
+    string token;
+    vector<string> res;
+
+    while ((pos_end = s.find (delimiter, pos_start)) != string::npos) {
+        token = s.substr (pos_start, pos_end - pos_start);
+        pos_start = pos_end + delim_len;
+        res.push_back (token);
+    }
+
+    res.push_back (s.substr (pos_start));
+    return res;
+}
+
+map<string, string> maple_helper(string contents) {
+	map<string, string> count; 
+	vector<string> words = split(contents, " ");
+	for(int i = 0; i < words.size(); i += 2) {
+		string type = words[i];
+		float height = stof(words[i + 1]);
+
+		if(height < 770) continue;
+		if(count.find(type) != count.end()) {
+			count.find(type) -> second = to_string(stoi(count.find(type) -> second) + 1);
+		} else {
+			count.insert({type, to_string(1)});
+		}
+
+	}
+	
+	return count;
+}
+
+map<string, string> juice_helper(vector<string> files, string dir) {
+	
+	map<string, string> counts; 
+	cout << dir + "/" + files[0] << "\n";
+	for(int i = 0; i < files.size(); i++) {
+		int count = 0;
+		ifstream fin(dir + "/" + files[i]); 
+	    const int LINE_LENGTH = 100; 
+	    char str[LINE_LENGTH];  
+	    while( fin.getline(str,LINE_LENGTH)) {  
+	    	count += stoi(str);
+	    }
+	   	string word = split(files[i], "_")[2];
+	   	if(counts.find(word) != counts.end()) {
+	   		counts.find(word) -> second = to_string(stoi(counts.find(word) -> second) + count);
+	   	} else {
+	   		counts.insert({word, to_string(count)});
+	   	}
+	   	fin.close();
+	}
+	return counts;
+}
+
+// int main() {
+// 	return 0;
+// }
