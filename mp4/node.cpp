@@ -1122,6 +1122,9 @@ int master() {
 						break;
 					}
 				}
+				if (msg == "OK"){
+					master_init();
+				}
 				//msg = "OK"; msg would be modified as "OK" from file_server return
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
@@ -1182,22 +1185,22 @@ int master() {
 			    output_file = received_info_vec[4];
 			    delete_intermediate = stoi(received_info_vec[5]);
 
-			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + " " + to_string(maple_machine_num) + " " + to_string(delete_intermediate);
+			    juice_msg = "JUICE_EXE " + para_exe + " " + para_prefix + " " + output_file + " " + para_num + " " + to_string(delete_intermediate);
 
-			    if(maple_idxs_machines.size() != 0) {
-			    	set<int>::iterator it;
-				    for(int i = 0; i < maple_machine_num; i++) {
-				        int juice_id = maple_idxs_machines.find(i) ->second;
-				        string tmp = juice_msg + " " + to_string(i);
-						send_msg_map_reduce(tmp, serverlist[juice_id - 1]);
-				    }
-			    } else {
-			    	for(int i = 0; i < maple_machine_num; i++) {
+			   //  if(maple_idxs_machines.size() != 0) {
+			   //  	set<int>::iterator it;
+				  //   for(int i = 0; i < maple_machine_num; i++) {
+				  //       int juice_id = maple_idxs_machines.find(i) ->second;
+				  //       string tmp = juice_msg + " " + to_string(i);
+						// send_msg_map_reduce(tmp, serverlist[juice_id - 1]);
+				  //   }
+			   //  } else {
+			    	for(int i = 0; i < stoi(para_num); i++) {
 				        while(membership_list.find(next_mj_id) == membership_list.end()) {
 							next_mj_id++;
 							if(next_mj_id != 10) next_mj_id = next_mj_id % 10;
 						}
-						string tmp = maple_msg + " " + to_string(i);
+						string tmp = juice_msg + " " + to_string(i);
 						// printf("Master to machine %d to maple msg: %s\n", next_mj_id, tmp.c_str());
 						send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
 
@@ -1207,7 +1210,7 @@ int master() {
 
 				    }
 
-			    }
+			    //}
 			    
 			    close(new_server_fd);
 					
@@ -1726,8 +1729,8 @@ int file_server() {
 			sdfs_file_set.erase(file_name);
 			printf("%s is deleted successfully\n\n", file_name.c_str());
 		} else if(strcmp(received_vector[0].c_str(),"GET")==0) {
-			string msg = "OK";
-			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			//string msg = "OK";
+			//send(new_server_fd, msg.c_str(), msg.length(), 0);
 			string dir = DIR_SDFS + to_string(myinfo.id);
 			send_file(dir + "/" + file_name, new_server_fd);
 		} else if(strcmp(received_vector[0].c_str(),"PUT")==0) {
