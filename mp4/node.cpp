@@ -42,7 +42,7 @@ using namespace std::chrono;
 #define RESPONDE_TIMEOUT 20
 #define SDFS_FILE_LIST "sdfs_file_list"
 
-#define DEBUG_J true
+#define DEBUG_J false
 #define DEBUG_P false
 
 //Server parameters to assign and to print
@@ -79,7 +79,7 @@ struct server_para introducer;
 struct server_para master_server;
 struct server_para *neighbors;
 int wait_time = 2000; //500; //ms can use 80 for emulating msg loss
-int heartbeat_time = wait_time/8;
+int heartbeat_time = wait_time/20; //8;
 int heartbeat_when_join = 0;
 set<int> membership_list;
 map<int, int> mem_hb_map;
@@ -104,6 +104,8 @@ int delete_intermediate = 0;
 string output_file = "";
 string prefix = "";
 bool is_restore_snapshot = false;
+string pub_maple_prefix = "";
+string pub_juice_prefix = "";
 
 //Connect using hotname. The sock will be used to send message
 int connect_by_host(int &sock, server_para &server, int socktype){   
@@ -202,7 +204,10 @@ int send_msg(string& msg, struct server_para server){
 
     struct sockaddr_in serv_addr; 	
 	init_socket_para(serv_addr, server.addr.c_str(), server.port);
-    if (connect_socket(sock, serv_addr)<0){server.status = -1; return -1;}
+    if (connect_socket(sock, serv_addr)<0){
+    	server.status = -1; 
+    	cout<<"tried buf failed: "<<msg<<"\n"; 
+    	return -1;}
     // cout<<"target= "<<server.addr<<":"<<server.port<<"\n";
 
     send(sock, msg.c_str(), msg.length(), 0);
@@ -271,10 +276,15 @@ int re_replica(int id) {	//make sure only master calls this function
 	long time1 = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 	//set<string> file_names = files_per_node.find(id) -> second;
+	cout << "start replca\n";
 	set<string> file_names = files_per_node[id];
 	set<string>::iterator it;
 	for(it = file_names.begin(); it!=file_names.end(); it++)  {
 		string file_name = *it;
+		if (file_name.find(pub_maple_prefix) != std::string::npos){
+			//||file_name.find(pub_juice_prefix) != std::string::npos){
+			continue;
+		}
 		set<int> nodes = file_map[file_name].nodes;
 		nodes.erase(id);
 		int src_id = *nodes.begin(), trg_id=next_id;
@@ -754,7 +764,7 @@ int send_file(string file_name, int sock){
 	char buffer[BUFFER_SIZE];
 	int length = 0, total_len = 0, n_sent=0;
 	if(fp == NULL) {
-		printf("File %s not found.\n", file_name.c_str());
+		printf("File %s not found (to send).\n", file_name.c_str());
 	} else {
 		bzero(buffer, BUFFER_SIZE);
 		while((length = fread(buffer, sizeof(char), BUFFER_SIZE-1, fp)) > 0) {
@@ -781,7 +791,7 @@ int get_file(string sdfs_name, int sock, bool isLocal){
 	int length = 0, total_len = 0;
 
 	if(fp == NULL) {
-		printf("File %s not found.\n", sdfs_name.c_str());
+		printf("File %s not found (to get).\n", sdfs_name.c_str());
 	} else {
 		bzero(buffer, BUFFER_SIZE);
 		while ((length = recv(sock , buffer, BUFFER_SIZE - 1, 0)) > 0){ 
@@ -1039,6 +1049,7 @@ int master() {
 					long cur_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					long confirmed_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					string update_confirm_msg = "LESS1MIN";
+					/*
 					if((cur_time - file_map[file_name].timestamp) < MIN_UPDATE_DURATION ) {
 						printf("Less than 1 min. Wait user to confirm \n");
 						send(new_server_fd, update_confirm_msg.c_str(), update_confirm_msg.length(), 0);
@@ -1067,7 +1078,8 @@ int master() {
 						}
 
 
-					} 
+					} */
+					update_confirm_msg = "YES";
 
 					if(strcmp(update_confirm_msg.c_str(), "YES") == 0) {
 						string replicas = "";
@@ -1655,6 +1667,7 @@ int test(){
 				send_msg(tmp, master_server);
 				msg = "OK";
 				printf("server sent OK\n");
+				pub_maple_prefix = para_prefix;
 			}
 
 			if(strcmp(ptr, "JUICE") == 0) {
@@ -1672,6 +1685,7 @@ int test(){
 				string tmp2 = std::string("JUICE_SDFS ") + para_exe + " "+ para_num + " "+ para_prefix + " "+ para_output + " "+ para_delete;
 				send_msg(tmp2, master_server);
 				msg = "OK";
+				pub_juice_prefix = para_prefix;
 			} 
 		}
 		//if introducer sent update information about its neighbor
