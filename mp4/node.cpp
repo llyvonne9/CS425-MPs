@@ -43,7 +43,7 @@ using namespace std::chrono;
 #define SDFS_FILE_LIST "sdfs_file_list"
 
 #define DEBUG_J true
-#define DEBUG_P false
+#define DEBUG_P true
 
 //Server parameters to assign and to print
 struct server_para {
@@ -89,6 +89,7 @@ map<string, file_para> file_map;
 int next_id = 1;
 int next_mj_id = 1;
 long maple_start_time = 0;
+long juice_start_time = 0;
 bool is_mapling = false;
 bool ready_to_juice = false;
 bool is_juicing = false;
@@ -377,7 +378,9 @@ int node_quit_proc(int id){
 			maple_machines_idxs.insert({next_mj_id, failed_maple_index});
 			maple_idxs_machines.find(failed_maple_index) -> second = next_mj_id;
 			string tmp = maple_msg + " " + to_string(failed_maple_index);
+			printf("Send machine %d to recover the maple work for %d\n", next_mj_id, failed_maple_index);
 			send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
+			next_mj_id++;
 		}
 
 		if(is_juicing && maple_machines_idxs.find(id) != maple_machines_idxs.end() && juice_finish_set.find(maple_machines_idxs.find(id) -> second) == juice_finish_set.end()) {
@@ -391,6 +394,8 @@ int node_quit_proc(int id){
 			maple_idxs_machines.find(failed_maple_index) -> second = next_mj_id;
 			string tmp = juice_msg + " " +  to_string(failed_maple_index);
 			send_msg_map_reduce(tmp, serverlist[next_mj_id - 1]);
+			printf("Send machine %d to recover the put work for %d\n", next_mj_id, failed_maple_index);
+			next_mj_id++;
 		}
 	}
 	return 0;
@@ -918,6 +923,7 @@ int delete_file(string file_name) {
 		perror( "Error deleting file" );
 		return -1;
 	}
+	file_map.erase(file_name);
 	return 1;
 }
 
@@ -986,7 +992,7 @@ int master() {
 
 				if(!check_file_exists(file_name)) {
 					msg = "";
-					printf("[MASTER GET_SDFS] The file does not exit.\n");
+					printf("[MASTER GET_SDFS] The file %s does not exit.\n", file_name.c_str());
 				} else {
 
 					// msg = to_string(*file_map[file_name].nodes.begin());
@@ -1181,17 +1187,21 @@ int master() {
 			}  else if(strcmp(received_info_vec[0].c_str(), "MAPLE_FINISH") == 0) {
 				int m_id = stoi(received_info_vec[1]);
 				maple_finish_set.insert(m_id);
+				printf("Maple in progress %lu / %lu\n", maple_finish_set.size(), maple_machines_idxs.size());
 
 				if(maple_finish_set.size() >= maple_machine_num) {
-					ready_to_juice = true;
+					long cur = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+					cout << "Maple time: " << to_string(cur - maple_start_time) << "\n";
+					is_juicing = true;
 					is_mapling = false;
-					printf("[MASTER] Ready to reduce.");
+					printf("[MASTER] Ready to reduce.\n");
 
 				}
 				string msg = "OK, good job!";
 				send(new_server_fd, msg.c_str(), msg.length(), 0);
 				close(new_server_fd);
 			} else if(strcmp(received_info_vec[0].c_str(), "JUICE_SDFS") == 0) {
+				is_juicing = true;
 				// std::string("JUICE_SDFS ") + para_exe + " "+ para_num + " "+ para_prefix + " "+ para_output + " "+ para_delete;
 				juice_finish_set.clear();
 				string para_exe = received_info_vec[1];
@@ -1210,6 +1220,7 @@ int master() {
 						// send_msg_map_reduce(tmp, serverlist[juice_id - 1]);
 				  //   }
 			   //  } else {
+			   	juice_start_time = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 			   		maple_idxs_machines.clear();
 			   		maple_machines_idxs.clear();
 			    	for(int i = 0; i < stoi(para_num); i++) {
@@ -1253,8 +1264,15 @@ int master() {
 						files = split(file_names, " ");
 						for(int i = 0; i < files.size(); i++) 
 							delete_file(files[i]);
+
+						string delete_cmd = "./rm_init.sh";
+						popen(delete_cmd.c_str(), "r");
+
+
 					}
+					long cur = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					printf("[MASTER] Juice Finish All Finish YEAH.\n");
+					printf("JUICE finish time: %lu\n", cur - juice_start_time);
 				}
 				close(new_server_fd);
 			}
@@ -1942,33 +1960,35 @@ int map_reduce() {
 			if(delete_or_not == 1) {
 				// remove the dir_tmp folder
 				printf("Start to delete. \n");
-				try {
-					string cmd = std::string("rm -r ") + DIR_TEMP + to_string(myinfo.id);
-					popen(cmd.c_str(), "r");
-				} catch (std::exception const &e) {
+				string delete_cmd = "./rm_init.sh";
+				popen(delete_cmd.c_str(), "r");
+				// try {
+				// 	string cmd = std::string("rm -r ") + DIR_TEMP + to_string(myinfo.id);
+				// 	popen(cmd.c_str(), "r");
+				// } catch (std::exception const &e) {
 
-				}
+				// }
 
 
-				// remove the files in the folder dir_sdfs
-				DIR *dp;
-		    	struct dirent *dirp;
-		    	vector<string> files;
-		    	if((dp = opendir((DIR_SDFS + to_string(myinfo.id) + "/").c_str())) == NULL) {
-		      		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
-		      		return errno;
-		    	}
-		   		while ((dirp = readdir(dp)) != NULL) {
-		    		string name = dirp->d_name;
-		    		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
-		    		if(name.find(prefix) != std::string::npos || name.find("juiceoutput_") != std::string::npos) {
-		    			if (remove((DIR_SDFS + to_string(myinfo.id) + "/" + name).c_str()) != 0)
-							perror("File deletion failed");
-						else
-							cout << "File deleted successfully";
-					}
-		    	}
-		    	closedir(dp);
+				// // remove the files in the folder dir_sdfs
+				// DIR *dp;
+		  //   	struct dirent *dirp;
+		  //   	vector<string> files;
+		  //   	if((dp = opendir((DIR_SDFS + to_string(myinfo.id) + "/").c_str())) == NULL) {
+		  //     		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
+		  //     		return errno;
+		  //   	}
+		  //  		while ((dirp = readdir(dp)) != NULL) {
+		  //   		string name = dirp->d_name;
+		  //   		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
+		  //   		if(name.find(prefix) != std::string::npos || name.find("juiceoutput_") != std::string::npos) {
+		  //   			if (remove((DIR_SDFS + to_string(myinfo.id) + "/" + name).c_str()) != 0)
+				// 			perror("File deletion failed");
+				// 		else
+				// 			cout << "File deleted successfully";
+				// 	}
+		  //   	}
+		  //   	closedir(dp);
 
 
 			}
