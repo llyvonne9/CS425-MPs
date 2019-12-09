@@ -34,23 +34,54 @@ map<string, string> maple_helper(string contents) {
 	return count;
 }
 
-map<string, string> juice_helper(vector<string> files, string dir) {
-	
-	map<string, string> counts; 
+//map<string, string> juice_helper(vector<string> files, string dir) {
+map<string, int> juice_helper(vector<string> files, string dir) {	
+	//map<string, string> counts; 
+	map<string, int> counts; 
 	cout << dir + "/" + files[0] << "\n";
 	for(int i = 0; i < files.size(); i++) {
 		int count = 0;
-		ifstream fin(dir + "/" + files[i]); 
+		ifstream fin;
+		try{
+			fin.open(dir + "/" + files[i]); 
+		} catch (std::exception const &e) {
+			cout<<"Maybe not SDFS_FILE_LIST file yet."<< dir + "/" + files[i] << "\n";
+		}
+		if(!fin) {
+			cout << "While opening a file an error is encountered "<< dir + "/" + files[i] << endl;
+			//return -1;
+		}
 	    const int LINE_LENGTH = 100; 
 	    char str[LINE_LENGTH];  
-	    while( fin.getline(str,LINE_LENGTH)) {  
-	    	count += stoi(str);
-	    }
 	   	string word = split(files[i], "_")[2];
+	    //while( fin.getline(str,LINE_LENGTH)) {
+	   	// while(!fin.eof()){
+	   	// 	fin.getline(str,LINE_LENGTH)
+		   //  if (word == "1813"){
+		   //  	cout<< "a 1813: "<< files[i]<< " " << stoi(str)<< "\n";
+		   //  }  
+	    // 	count += stoi(str);
+	    // }
+	    int a;
+	    //while(!fin.eof()){
+	    while(fin >> a){
+			//fin >> a;
+			count += a;
+		}
 	   	if(counts.find(word) != counts.end()) {
-	   		counts.find(word) -> second = to_string(stoi(counts.find(word) -> second) + count);
+	   		//counts.find(word) -> second = to_string(stoi(counts.find(word) -> second) + count);
+	   		//counts[word] += count;
+	   		counts.find(word)->second = counts.find(word)->second + count;
+		    if (word == "1813"){
+		    	cout<< "b 1813: "<< files[i]<< " "  << count<< " "<< counts[word] << "\n";
+		    }  
 	   	} else {
-	   		counts.insert({word, to_string(count)});
+	   		//counts.insert({word, to_string(count)});
+	   		//counts.insert({word, count});
+	   		counts.insert(std::make_pair(word, count));
+		    if (word == "1813"){
+		    	cout<< "c 1813: "<< files[i]<< " "  << count<< "\n";
+		    }  
 	   	}
 	   	fin.close();
 	}
