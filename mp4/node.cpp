@@ -826,6 +826,7 @@ int get(string sdfs_filename, string local_filename) {
 	
 	//to node
 	get_from(sdfs_filename, local_filename, id);
+	return 0;
 }
 
 //get files with the name *_
@@ -877,7 +878,15 @@ int combine_results(string output) {
 	for(int i = 0; i < maple_machines_idxs.size(); i++) {
 		string tmp_file = DIR_TEMP+to_string(myinfo.id)+"/juiceoutput_" + to_string(i);
 		//get("juiceoutput_" + to_string(i), tmp_file); 
-		get_from("juiceoutput_" + to_string(i), tmp_file, maple_idxs_machines[i]);
+		int id = -1;
+		set<int>::iterator it;
+		for(it = file_map["/juiceoutput_" + to_string(i)].nodes.begin(); it!=file_map["/juiceoutput_" + to_string(i)].nodes.end(); it++)  {
+			if(membership_list.find(*it) != membership_list.end()) {
+				id = *it;
+				break;
+			}
+		}
+		get_from("juiceoutput_" + to_string(i), tmp_file, id - 1);
 		
 		string line;
 		ifstream intermediate_output (tmp_file);
@@ -1220,8 +1229,9 @@ int master() {
 			}  else if(strcmp(received_info_vec[0].c_str(), "JUICE_FINISH") == 0) {
 				int j_id = stoi(received_info_vec[1]);
 				juice_finish_set.insert(j_id);
-
+				printf("Juice in progress %lu / %lu\n", juice_finish_set.size(), maple_machines_idxs.size());
 				if(juice_finish_set.size() >= maple_machines_idxs.size()) {
+					printf("Before Combine\n");
 					combine_results(output_file);
 
 					cout << "JOICE finished";
@@ -1243,6 +1253,7 @@ int master() {
 
 				}
 				close(new_server_fd);
+				printf("[MASTER] Juice Finish All Finish YEAH.\n");
 
 			}
 			
