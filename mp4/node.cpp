@@ -43,7 +43,7 @@ using namespace std::chrono;
 #define SDFS_FILE_LIST "sdfs_file_list"
 
 #define DEBUG_J true
-#define DEBUG_P true
+#define DEBUG_P false
 
 //Server parameters to assign and to print
 struct server_para {
@@ -1247,32 +1247,47 @@ int master() {
 				int j_id = stoi(received_info_vec[1]);
 				juice_finish_set.insert(j_id);
 				printf("Juice in progress %lu / %lu\n", juice_finish_set.size(), maple_machines_idxs.size());
+				// string msg = "OK";
+				// send(new_server_fd, msg.c_str(), msg.length(), 0);
 				if(juice_finish_set.size() >= maple_machines_idxs.size()) {
 					printf("Before Combine\n");
 					combine_results(output_file);
 
 					is_juicing = false;
-					if(delete_intermediate == 1) {
-						//delete maple output
-						string file_names = get_filenames_by_prefix(prefix);
-						vector<string> files = split(file_names, " ");
-						for(int i = 0; i < files.size(); i++) 
-							delete_file(files[i]);
 
-							//delete reduce output
-						file_names = get_filenames_by_prefix("juiceoutput_");
-						files = split(file_names, " ");
-						for(int i = 0; i < files.size(); i++) 
-							delete_file(files[i]);
-
-						string delete_cmd = "./rm_init.sh";
-						popen(delete_cmd.c_str(), "r");
-
-
-					}
 					long cur = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 					printf("[MASTER] Juice Finish All Finish YEAH.\n");
 					printf("JUICE finish time: %lu\n", cur - juice_start_time);
+					
+					if(delete_intermediate == 1) {
+						//delete maple output
+						printf("[Master] delete intermediate from sdfs\n");
+						// string file_names = get_filenames_by_prefix(prefix);
+						// vector<string> files = split(file_names, " ");
+						// for(int i = 0; i < files.size(); i++) 
+						// 	delete_file(files[i]);
+
+						// printf("[Master] delete maple intermediate from sdfs\n", );
+
+						// 	//delete reduce output
+						// file_names = get_filenames_by_prefix("juiceoutput_");
+						// files = split(file_names, " ");
+						// for(int i = 0; i < files.size(); i++) 
+						// 	delete_file(files[i]);
+
+						// printf("[Master] delete intermediate from local\n", );
+						// string delete_cmd = "./rm_init.sh";
+						// popen(delete_cmd.c_str(), "r");
+						set<int>::iterator it;
+						for(it = membership_list.begin(); it!=membership_list.end(); it++)  {
+							string d_msg = "JUICE_DELETE";
+							printf("[Master]Send delete to %d\n", (*it - 1));
+							send_msg(d_msg, serverlist[*it - 1]);
+						}
+
+
+					}
+					
 				}
 				close(new_server_fd);
 			}
@@ -1748,7 +1763,7 @@ int file_server() {
 		}
 		//read the request
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-		if(DEBUG_P) printf("[FILE SERVER]The order received is: %s\n", received_info);
+		printf("[FILE SERVER]The order received is: %s\n", received_info);
 		vector<string> received_vector = split(received_info, " ");
 		string file_name = (received_vector.size()>1)? received_vector[1]: "WHATSUP";
 
@@ -1791,7 +1806,37 @@ int file_server() {
 			read_sdfs_file_list();
 			string msg = "OK";
 			send(new_server_fd, msg.c_str(), msg.length(), 0);
-		} 
+		} else if(strcmp(received_vector[0].c_str(),"JUICE_DELETE")==0) {
+			printf("[Server] Start to delete. ", sdfs_file_set.size());
+			string msg = "OK";
+			send(new_server_fd, msg.c_str(), msg.length(), 0);
+			close(new_server_fd);
+			printf("[Server] Start to delete. SDFS size %lu\n", sdfs_file_set.size());
+			// string delete_cmd = "./rm_init.sh";
+			string delete_cmd = std::string("rm -r ") + DIR_TEMP + to_string(myinfo.id);
+			popen(delete_cmd.c_str(), "r");
+
+			set<string>::iterator it;
+			for(it = sdfs_file_set.begin(); it!=sdfs_file_set.end(); it++)  {
+				printf("delete %s\n", (*it).c_str());
+				//printf("%s\n", (*it).c_str());
+				// myfile << (*it).c_str() << "\n";
+				string fn = *it;
+				if((*it).find(prefix) == std::string::npos && fn.find("juiceoutput_") != std::string::npos )
+					continue;
+
+				delete_cmd = std::string("rm ") + DIR_SDFS + to_string(myinfo.id) + "/" + (*it);
+				try {
+				    popen(delete_cmd.c_str(), "r");
+				    sdfs_file_set.erase(*it);
+				} catch (std::exception const &e) {
+
+				}
+
+			}
+
+			
+		}
 
 		close(new_server_fd);
 	}
@@ -1957,46 +2002,44 @@ int map_reduce() {
 
 			printf("JUICE FINISHED YEAH!\n");
 
-			if(delete_or_not == 1) {
-				// remove the dir_tmp folder
-				printf("Start to delete. \n");
-				string delete_cmd = "./rm_init.sh";
-				popen(delete_cmd.c_str(), "r");
-				// try {
-				// 	string cmd = std::string("rm -r ") + DIR_TEMP + to_string(myinfo.id);
-				// 	popen(cmd.c_str(), "r");
-				// } catch (std::exception const &e) {
+			// if(delete_or_not == 1) {
+			// 	// remove the dir_tmp folder
+			// 	printf("Start to delete. \n");
+			// 	string delete_cmd = "./rm_init.sh";
+			// 	popen(delete_cmd.c_str(), "r");
+			// 	// try {
+			// 	// 	string cmd = std::string("rm -r ") + DIR_TEMP + to_string(myinfo.id);
+			// 	// 	popen(cmd.c_str(), "r");
+			// 	// } catch (std::exception const &e) {
 
-				// }
-
-
-				// // remove the files in the folder dir_sdfs
-				// DIR *dp;
-		  //   	struct dirent *dirp;
-		  //   	vector<string> files;
-		  //   	if((dp = opendir((DIR_SDFS + to_string(myinfo.id) + "/").c_str())) == NULL) {
-		  //     		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
-		  //     		return errno;
-		  //   	}
-		  //  		while ((dirp = readdir(dp)) != NULL) {
-		  //   		string name = dirp->d_name;
-		  //   		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
-		  //   		if(name.find(prefix) != std::string::npos || name.find("juiceoutput_") != std::string::npos) {
-		  //   			if (remove((DIR_SDFS + to_string(myinfo.id) + "/" + name).c_str()) != 0)
-				// 			perror("File deletion failed");
-				// 		else
-				// 			cout << "File deleted successfully";
-				// 	}
-		  //   	}
-		  //   	closedir(dp);
+			// 	// }
 
 
-			}
+			// 	// // remove the files in the folder dir_sdfs
+			// 	// DIR *dp;
+		 //  //   	struct dirent *dirp;
+		 //  //   	vector<string> files;
+		 //  //   	if((dp = opendir((DIR_SDFS + to_string(myinfo.id) + "/").c_str())) == NULL) {
+		 //  //     		cout << "Error(" << errno << ") opening " << (dir + "/") << endl;
+		 //  //     		return errno;
+		 //  //   	}
+		 //  //  		while ((dirp = readdir(dp)) != NULL) {
+		 //  //   		string name = dirp->d_name;
+		 //  //   		// if(name.find(maple_prefix) != std::string::npos && stoi(split(name, "_")[1]) != current_id) {
+		 //  //   		if(name.find(prefix) != std::string::npos || name.find("juiceoutput_") != std::string::npos) {
+		 //  //   			if (remove((DIR_SDFS + to_string(myinfo.id) + "/" + name).c_str()) != 0)
+			// 	// 			perror("File deletion failed");
+			// 	// 		else
+			// 	// 			cout << "File deleted successfully";
+			// 	// 	}
+		 //  //   	}
+		 //  //   	closedir(dp);
+
+
+			// }
 			
-		}
-		string msg = "OK";
-		send(new_server_fd, msg.c_str(), msg.length(), 0);
-		close(new_server_fd);
+		} 
+		
 	}
 	
 	return 0;
