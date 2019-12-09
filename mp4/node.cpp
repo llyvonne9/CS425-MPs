@@ -43,6 +43,7 @@ using namespace std::chrono;
 #define SDFS_FILE_LIST "sdfs_file_list"
 
 #define DEBUG_J true
+#define DEBUG_P true
 
 //Server parameters to assign and to print
 struct server_para {
@@ -815,7 +816,7 @@ int get_from(string sdfs_filename, string local_filename, int id){
 //machine get file sdfs_filename from master and store as local_filename
 int get(string sdfs_filename, string local_filename) {
 	// to master
-	printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
+	if(!DEBUG_P) printf("[FILE SERVER] get %s to local as %s\n", sdfs_filename.c_str(), local_filename.c_str());
 	string msg = "GET_SDFS "+ sdfs_filename;
 	send_msg(msg, master_server);
 	if (msg.length() == 0){
@@ -974,7 +975,7 @@ int master() {
 				exit(1);
 			}
 			read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-			printf("\n[MASTER] The order received is: %s\n", received_info);
+			printf("[MASTER] The order received is: %s\n", received_info);
 			string received_str = received_info;
 			vector<string> received_info_vec = split(received_str, " ");
 			string msg = "";
@@ -1369,7 +1370,7 @@ int put(string local_file, string target_file) {
 			read(sock_confim, recv_info, BUFFER_SIZE);
 			msg = "";
 			msg = recv_info;
-			printf("[FILE SERVER] User confirm action %s\n", msg.c_str());
+			if(!DEBUG_P) printf("[FILE SERVER] User confirm action %s\n", msg.c_str());
 			
 		}
 	} 
@@ -1728,7 +1729,7 @@ int file_server() {
 		}
 		//read the request
 		read_received_message = read(new_server_fd, received_info, BUFFER_SIZE);
-		printf("[FILE SERVER]The order received is: %s\n", received_info);
+		if(!DEBUG_P) printf("[FILE SERVER]The order received is: %s\n", received_info);
 		vector<string> received_vector = split(received_info, " ");
 		string file_name = (received_vector.size()>1)? received_vector[1]: "WHATSUP";
 
