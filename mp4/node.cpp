@@ -1822,7 +1822,7 @@ int file_server() {
 				//printf("%s\n", (*it).c_str());
 				// myfile << (*it).c_str() << "\n";
 				string fn = *it;
-				if((*it).find(prefix) == std::string::npos && fn.find("juiceoutput_") != std::string::npos )
+				if(fn.find(prefix) == std::string::npos && fn.find("juiceoutput_") == std::string::npos )
 					continue;
 
 				delete_cmd = std::string("rm ") + DIR_SDFS + to_string(myinfo.id) + "/" + (*it);
